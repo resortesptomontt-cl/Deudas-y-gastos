@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Deudas</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --border: #2a2f3a;
+    --text: #e8e9ec; --muted: #8b909c; --accent: #4f8cff;
+    --red: #ff5d5d; --green: #3ddc84; --amber: #ffb24f; --purple: #b08cff;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:16px; }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1 { font-size:21px; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+  .subtitle { color:var(--muted); font-size:13px; margin-bottom:18px; }
+
+  .tabs { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; border-bottom:1px solid var(--border); }
+  .tab { background:transparent; border:none; color:var(--muted); padding:10px 14px; font-size:13px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; }
+  .tab.active { color:var(--text); border-bottom-color:var(--accent); }
+  .view { display:none; }
+  .view.active { display:block; }
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+  .card .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .card .value { font-size:20px; font-weight:700; margin-top:4px; }
+  .value.red{color:var(--red)} .value.green{color:var(--green)} .value.amber{color:var(--amber)} .value.purple{color:var(--purple)}
+
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .panel h2 { font-size:14px; margin:0 0 4px; }
+  .panel .hint { font-size:12px; color:var(--muted); margin:0 0 12px; }
+
+  .alert { border-radius:10px; padding:12px 14px; font-size:13px; margin-bottom:14px; border:1px solid; line-height:1.5; }
+  .alert.ok{background:rgba(61,220,132,.08);border-color:rgba(61,220,132,.35);color:var(--green)}
+  .alert.warn{background:rgba(255,178,79,.08);border-color:rgba(255,178,79,.35);color:var(--amber)}
+  .alert.bad{background:rgba(255,93,93,.08);border-color:rgba(255,93,93,.35);color:var(--red)}
+
+  form { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  form .full { grid-column:1/-1; }
+  label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+  input, select { width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:9px 10px; font-size:14px; }
+  input:focus, select:focus { outline:none; border-color:var(--accent); }
+  button { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-size:14px; font-weight:600; cursor:pointer; grid-column:1/-1; }
+  button:hover{opacity:.9}
+  button.secondary{background:var(--panel2);border:1px solid var(--border);color:var(--text)}
+  button.danger-out{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;font-size:12px;grid-column:unset}
+  button.danger-out:hover{color:var(--red);border-color:var(--red)}
+  button.small{grid-column:unset; padding:6px 10px; font-size:12px;}
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; background:var(--panel2); border:1px solid var(--border); }
+  .pill.urgente { color:var(--red); border-color:rgba(255,93,93,.4); }
+  .pill.vencida { color:#fff; background:var(--red); border-color:var(--red); }
+  .pill.pronto { color:var(--amber); border-color:rgba(255,178,79,.4); }
+  .pill.ok { color:var(--green); border-color:rgba(61,220,132,.4); }
+  .pill.sin-fecha { color:var(--muted); }
+  .empty { text-align:center; color:var(--muted); padding:24px 0; font-size:13px; }
+
+  .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:12px; }
+  .bar-track { flex:1; height:10px; background:var(--panel2); border-radius:5px; overflow:hidden; }
+  .bar-fill { height:100%; }
+  .bar-label { width:130px; color:var(--muted); flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar-val { width:150px; text-align:right; flex-shrink:0; font-size:11px; }
+
+  .deuda-card { background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px; }
+  .deuda-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px; }
+  .deuda-nombre { font-weight:600; font-size:14px; }
+  .deuda-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+  .deuda-progreso { font-size:12px; margin-top:6px; }
+
+  .asignacion-item { display:flex; justify-content:space-between; align-items:center; padding:10px; background:var(--panel2); border:1px solid var(--border); border-radius:8px; margin-bottom:8px; }
+  .asignacion-item .izq { flex:1; }
+  .asignacion-item .nombre { font-weight:600; font-size:13px; }
+  .asignacion-item .urg { font-size:11px; margin-top:2px; }
+  .asignacion-item .monto { font-size:15px; font-weight:700; color:var(--accent); }
+
+  .tip { background:var(--panel2); border-left:3px solid var(--accent); border-radius:6px; padding:10px 12px; font-size:12.5px; color:var(--muted); margin-bottom:10px; line-height:1.5; }
+  .tip b { color:var(--text); }
+
+  .footer-actions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .footer-actions button { grid-column:unset; flex:1; min-width:140px; }
+
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--panel2); border:1px solid var(--border); padding:10px 16px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s; max-width:90%; text-align:center; }
+  #toast.show { opacity:1; }
+
+  .sueldo-fila { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .sueldo-fila input { flex:1; }
+  .sueldo-fila button { grid-column:unset; flex-shrink:0; width:auto; padding:8px 10px; background:transparent; border:1px solid var(--border); color:var(--muted); }
+  .sueldo-fila button:hover { color:var(--red); border-color:var(--red); }
+
+  .boleta-fila { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .boleta-fila input[type="number"] { flex:1.3; }
+  .boleta-fila input[type="date"] { flex:1; }
+  .boleta-fila label.chk { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--muted); flex-shrink:0; }
+  .boleta-fila label.chk input { width:auto; }
+  .boleta-fila button { grid-column:unset; flex-shrink:0; width:auto; padding:8px 10px; background:transparent; border:1px solid var(--border); color:var(--muted); }
+  .boleta-fila button:hover { color:var(--red); border-color:var(--red); }
+
+  .boletas-resumen { font-size:11px; color:var(--muted); margin:6px 0; display:flex; flex-wrap:wrap; gap:6px; }
+
+  .mora-box { background:rgba(176,140,255,.08); border:1px solid rgba(176,140,255,.35); border-radius:8px; padding:10px 12px; font-size:12.5px; color:var(--text); margin-top:8px; line-height:1.5; }
+  .mora-box b { color:var(--purple); }
+
+  .lock-screen {
+    position:fixed; inset:0; background:var(--bg); z-index:200;
+    display:flex; align-items:center; justify-content:center; flex-direction:column; padding:24px;
+  }
+  .lock-box { width:100%; max-width:320px; text-align:center; }
+  .lock-box .icono { font-size:40px; margin-bottom:8px; }
+  .lock-box h2 { font-size:17px; margin:0 0 4px; }
+  .lock-box p { font-size:12px; color:var(--muted); margin:0 0 18px; }
+  .lock-box input {
+    width:100%; text-align:center; font-size:24px; letter-spacing:8px;
+    background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:14px; margin-bottom:12px;
+  }
+  .lock-box input:focus { outline:none; border-color:var(--accent); }
+  .lock-box button { width:100%; }
+  .lock-error { color:var(--red); font-size:12px; margin-top:10px; min-height:16px; }
+
+  .modal-overlay {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.6);
+    align-items:center; justify-content:center; z-index:100; padding:16px;
+  }
+  .modal-overlay.show { display:flex; }
+  .modal-box {
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:20px; max-width:480px; width:100%; max-height:90vh; overflow-y:auto;
+  }
+</style>
+</head>
+<body>
+<div class="lock-screen" id="lock-screen">
+  <div class="lock-box">
+    <div class="icono">🔒</div>
+    <h2>Control de Plata</h2>
+    <p>Ingresá tu código para entrar</p>
+    <form id="form-lock">
+      <input type="password" inputmode="numeric" id="lock-input" maxlength="12" placeholder="••••" autofocus>
+      <button type="submit">Entrar</button>
+      <div class="lock-error" id="lock-error"></div>
+    </form>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>📋 Control de Plata</h1>
+  <p class="subtitle">Deudas + anticipos semanales + gastos diarios, todo en un lugar.</p>
+
+  <div class="footer-actions" style="margin-bottom:14px">
+    <button class="secondary" id="btn-export-top">⬇ Exportar respaldo (JSON)</button>
+    <button class="secondary" id="btn-import-top">⬆ Importar respaldo</button>
+  </div>
+
+  <div id="alerta-principal"></div>
+  <div class="cards" id="cards"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="deudas">Mis deudas</button>
+    <button class="tab" data-view="anticipo">Repartir anticipo</button>
+    <button class="tab" data-view="gastos">Gastos diarios</button>
+    <button class="tab" data-view="historial">Historial de pagos</button>
+  </div>
+
+  <!-- DEUDAS -->
+  <div class="view active" id="view-deudas">
+    <div class="panel">
+      <h2>Agregar deuda</h2>
+      <p class="hint">No necesitás los datos exactos. Cárgala con lo que sepas hoy — siempre podés editar el monto después.</p>
+      <form id="form-deuda">
+        <div class="full">
+          <label>¿A quién le debés? (banco, tarjeta, persona, etc.)</label>
+          <input type="text" id="d-nombre" required placeholder="Ej: Tarjeta Falabella, préstamo de mi tío">
+        </div>
+        <div>
+          <label>Monto total que debés (CLP)</label>
+          <input type="number" id="d-total" min="0" step="1" required placeholder="0">
+        </div>
+        <div>
+          <label>¿Ya pagaste algo de esto? (CLP)</label>
+          <input type="number" id="d-pagado" min="0" step="1" placeholder="0">
+        </div>
+        <div>
+          <label>Día de vencimiento (1-31, déjalo vacío si no sabes)</label>
+          <input type="number" id="d-dia" min="1" max="31" placeholder="Ej: 5">
+        </div>
+        <div>
+          <label>Cuota mínima mensual (opcional, CLP)</label>
+          <input type="number" id="d-minimo" min="0" step="1" placeholder="0">
+        </div>
+        <button type="submit">Agregar deuda</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Tus deudas registradas</h2>
+      <div id="lista-deudas"></div>
+      <div class="empty" id="deudas-empty" style="display:none">Todavía no has cargado deudas. Empieza por las que más te preocupan o las que tienen letras chicas (tarjetas, créditos con interés).</div>
+    </div>
+    <div class="panel">
+      <h2>Tu sueldo mensual</h2>
+      <p class="hint">Define cómo repartís tu sueldo en anticipos. Esto reemplaza el cálculo por promedio — la proyección va a usar estos montos reales, no una estimación.</p>
+      <div id="lista-sueldo-config"></div>
+      <button type="button" class="secondary" style="margin-top:8px" onclick="agregarFilaSueldo()">+ Agregar anticipo</button>
+      <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+        <span class="hint" id="sueldo-total-hint" style="margin:0"></span>
+        <button type="button" style="grid-column:unset; width:auto" onclick="guardarSueldoConfig()">Guardar sueldo mensual</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Proyección del mes</h2>
+      <p class="hint">¿Te van a alcanzar tus anticipos de lo que queda del mes para cubrir lo que vence?</p>
+      <div id="proyeccion-cards" class="cards" style="margin-bottom:10px"></div>
+      <div id="proyeccion-detalle"></div>
+    </div>
+    <div class="tip">
+      <b>Por qué esto importa:</b> mientras no tengas todas tus deudas en un solo lugar, vas a seguir "sintiendo" que debés más o menos de lo real. Cárgalas aunque sea aproximado — corregir un número después es fácil, no saber que existe una deuda es lo que te atrasa.
+    </div>
+  </div>
+
+  <!-- ANTICIPO -->
+  <div class="view" id="view-anticipo">
+    <div class="panel">
+      <h2>Registrar anticipo del sábado</h2>
+      <form id="form-anticipo">
+        <div>
+          <label>Monto recibido (CLP)</label>
+          <input type="number" id="a-monto" min="0" step="1" required placeholder="0">
+        </div>
+        <div>
+          <label>Fecha</label>
+          <input type="date" id="a-fecha" required>
+        </div>
+        <button type="submit">Registrar y ver sugerencia de reparto</button>
+      </form>
+    </div>
+    <div class="panel" id="panel-sugerencia" style="display:none">
+      <h2>Sugerencia de reparto</h2>
+      <p class="hint">Ordenado por urgencia: primero lo que vence pronto, después lo demás. Tocá "Pagar" en cada una a medida que la pagues de verdad.</p>
+      <div id="sugerencia-lista"></div>
+    </div>
+    <div class="tip">
+      <b>Cómo lo ordena:</b> deudas con vencimiento en los próximos 7 días van primero (en rojo), luego las de este mes (en amarillo), y al final las que no tienen fecha definida. Si el anticipo no alcanza para todo, prioriza las primeras de la lista — no las repartas todas en partes iguales.
+    </div>
+  </div>
+
+  <!-- GASTOS DIARIOS -->
+  <div class="view" id="view-gastos">
+    <div class="panel">
+      <h2>Registrar gasto diario</h2>
+      <p class="hint">Anótalo apenas lo gastes. Lo que no anotás al momento, se te olvida.</p>
+      <form id="form-gasto">
+        <div>
+          <label>Monto (CLP)</label>
+          <input type="number" id="g-monto" min="0" step="1" required placeholder="0">
+        </div>
+        <div>
+          <label>Fecha</label>
+          <input type="date" id="g-fecha" required>
+        </div>
+        <div class="full">
+          <label>Categoría</label>
+          <select id="g-categoria">
+            <option>Comida</option>
+            <option>Combustible</option>
+            <option>Vicios</option>
+            <option>Transporte</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="full">
+          <label>Detalle (opcional)</label>
+          <input type="text" id="g-desc" placeholder="Ej: almuerzo, bencina, cigarros">
+        </div>
+        <button type="submit">Agregar gasto</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Esta semana</h2>
+      <div id="resumen-semana-cards" class="cards" style="margin-bottom:0"></div>
+    </div>
+    <div class="panel">
+      <h2>Por categoría (mes actual)</h2>
+      <div id="barras-gastos"></div>
+    </div>
+    <div class="panel">
+      <h2>Últimos gastos</h2>
+      <table>
+        <thead><tr><th>Fecha</th><th>Categoría</th><th>Detalle</th><th style="text-align:right">Monto</th><th></th></tr></thead>
+        <tbody id="gastos-tabla-body"></tbody>
+      </table>
+      <div class="empty" id="gastos-empty" style="display:none">Sin gastos registrados todavía.</div>
+    </div>
+    <div class="alert warn" id="alerta-gastos-vs-deuda" style="display:none"></div>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div class="view" id="view-historial">
+    <div class="panel">
+      <h2>Historial de pagos y anticipos</h2>
+      <table>
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th style="text-align:right">Monto</th><th></th></tr></thead>
+        <tbody id="tabla-body"></tbody>
+      </table>
+      <div class="empty" id="tabla-empty" style="display:none">Sin movimientos todavía.</div>
+      <input type="file" id="file-import" accept=".json" style="display:none">
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <h2 style="margin-top:0">Editar deuda</h2>
+    <form id="form-editar">
+      <div class="full">
+        <label>¿A quién le debés?</label>
+        <input type="text" id="e-nombre" required>
+      </div>
+      <div>
+        <label>Monto total (CLP)</label>
+        <input type="number" id="e-total" min="0" step="1" required>
+      </div>
+      <div>
+        <label>Ya pagaste (CLP)</label>
+        <input type="number" id="e-pagado" min="0" step="1">
+      </div>
+      <div>
+        <label>Día de vencimiento (1-31)</label>
+        <input type="number" id="e-dia" min="1" max="31" placeholder="Vacío si no tiene">
+      </div>
+      <div>
+        <label>Cuota mínima (CLP)</label>
+        <input type="number" id="e-minimo" min="0" step="1">
+      </div>
+
+      <div class="full" style="border-top:1px solid var(--border); margin-top:6px; padding-top:12px;">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="checkbox" id="e-usa-boletas" style="width:auto" onchange="toggleBoletasModal()"> Tiene varias boletas (ej: luz, agua)
+        </label>
+      </div>
+      <div class="full" id="seccion-boletas" style="display:none">
+        <p class="hint">Cada boleta con su propia fecha de vencimiento. El total y lo pagado se calculan solos a partir de esto.</p>
+        <div id="lista-boletas-modal"></div>
+        <button type="button" class="secondary" style="margin-top:6px" onclick="agregarBoletaModal()">+ Agregar boleta</button>
+      </div>
+
+      <div class="full" style="border-top:1px solid var(--border); margin-top:6px; padding-top:12px;">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="checkbox" id="e-es-mora" style="width:auto" onchange="toggleMoraModal()"> Es crédito en mora con descuento por pronto pago
+        </label>
+      </div>
+      <div class="full" id="seccion-mora" style="display:none">
+        <p class="hint">Para créditos atrasados donde el banco/financiera te ofrece pagar menos si pagas antes de una fecha límite.</p>
+        <form style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="full">
+            <label>Monto original de la deuda en mora (CLP)</label>
+            <input type="number" id="e-mora-original" min="0" step="1">
+          </div>
+          <div>
+            <label>% de descuento ofrecido</label>
+            <input type="number" id="e-mora-descuento" min="0" max="100" step="1" placeholder="Ej: 30">
+          </div>
+          <div>
+            <label>Fecha límite del descuento</label>
+            <input type="date" id="e-mora-fecha">
+          </div>
+        </form>
+      </div>
+
+      <div class="full" style="display:flex; gap:8px;">
+        <button type="button" class="secondary" style="flex:1" onclick="cerrarModal()">Cancelar</button>
+        <button type="submit" style="flex:1">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const HASH_CORRECTO = '62fe739825059f3098bcdba9e0ee2d62b18c24b8bb98dbb385551e9a04526b3c';
+const AUTH_KEY = 'control_plata_auth_v1';
+
+async function sha256Hex(texto) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+if (localStorage.getItem(AUTH_KEY) === '1') {
+  document.getElementById('lock-screen').style.display = 'none';
+}
+
+document.getElementById('form-lock').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const val = document.getElementById('lock-input').value.trim();
+  const hash = await sha256Hex(val);
+  if (hash === HASH_CORRECTO) {
+    localStorage.setItem(AUTH_KEY, '1');
+    document.getElementById('lock-screen').style.display = 'none';
+  } else {
+    document.getElementById('lock-error').textContent = 'Código incorrecto';
+    document.getElementById('lock-input').value = '';
+    document.getElementById('lock-input').focus();
+  }
+});
+
+const STORAGE_KEY = 'control_deudas_v1';
+
+function estadoInicial() { return { deudas: [], movimientos: [], gastos: [], sueldoConfig: [] }; }
+function cargar() {
+  try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : estadoInicial(); }
+  catch(e){ console.error(e); return estadoInicial(); }
+}
+function guardar(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+let data = cargar();
+if (!data.deudas) data.deudas = [];
+if (!data.movimientos) data.movimientos = [];
+if (!data.gastos) data.gastos = [];
+if (!data.sueldoConfig) data.sueldoConfig = [];
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function fmt(n){ return '$'+Math.round(n).toLocaleString('es-CL'); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+  });
+});
+
+// ---------- Urgencia ----------
+function diasHastaVencimiento(dia) {
+  if (!dia) return null;
+  const hoy = new Date();
+  const candidato = new Date(hoy.getFullYear(), hoy.getMonth(), dia);
+  if (candidato < hoy) candidato.setMonth(candidato.getMonth()+1);
+  return Math.ceil((candidato - hoy) / (1000*60*60*24));
+}
+function nivelUrgencia(dia) {
+  const dias = diasHastaVencimiento(dia);
+  if (dias === null) return { nivel:'sin-fecha', label:'Sin fecha definida', dias:null };
+  if (dias <= 7) return { nivel:'urgente', label:`Vence en ${dias} día${dias===1?'':'s'}`, dias };
+  if (dias <= 30) return { nivel:'pronto', label:`Vence en ${dias} días`, dias };
+  return { nivel:'ok', label:`Vence en ${dias} días`, dias };
+}
+
+function diasHastaFechaExacta(fechaISO) {
+  if (!fechaISO) return null;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const f = new Date(fechaISO + 'T00:00:00');
+  return Math.round((f - hoy) / (1000*60*60*24));
+}
+function nivelUrgenciaFecha(fechaISO) {
+  const dias = diasHastaFechaExacta(fechaISO);
+  if (dias === null) return { nivel:'sin-fecha', label:'Sin fecha', dias:null };
+  if (dias < 0) return { nivel:'vencida', label:`Vencida hace ${Math.abs(dias)} día${Math.abs(dias)===1?'':'s'}`, dias };
+  if (dias <= 7) return { nivel:'urgente', label:`Vence en ${dias} día${dias===1?'':'s'}`, dias };
+  if (dias <= 30) return { nivel:'pronto', label:`Vence en ${dias} días`, dias };
+  return { nivel:'ok', label:`Vence en ${dias} días`, dias };
+}
+
+// ---------- Form deuda ----------
+document.getElementById('form-deuda').addEventListener('submit', e=>{
+  e.preventDefault();
+  const nombre = document.getElementById('d-nombre').value.trim();
+  const total = parseFloat(document.getElementById('d-total').value);
+  const pagado = parseFloat(document.getElementById('d-pagado').value) || 0;
+  const dia = document.getElementById('d-dia').value ? parseInt(document.getElementById('d-dia').value) : null;
+  const minimo = parseFloat(document.getElementById('d-minimo').value) || 0;
+
+  if (!nombre || !total || total<=0) { toast('Pon nombre y monto total'); return; }
+
+  data.deudas.push({ id: uid(), nombre, total, pagado, dia, minimo, activa: true });
+  guardar();
+  e.target.reset();
+  toast('Deuda agregada');
+  renderTodo();
+});
+
+function renderListaDeudas() {
+  const cont = document.getElementById('lista-deudas');
+  const activas = data.deudas.filter(d=>d.activa !== false);
+  if (!activas.length) { cont.innerHTML=''; document.getElementById('deudas-empty').style.display='block'; return; }
+  document.getElementById('deudas-empty').style.display = 'none';
+
+  function urgenciaDeuda(d) {
+    if (d.boletas && d.boletas.length) {
+      const pendientes = d.boletas.filter(b=>!b.pagada);
+      if (!pendientes.length) return { nivel:'ok', label:'Todas pagadas', dias:null };
+      const niveles = pendientes.map(b=>nivelUrgenciaFecha(b.fecha));
+      const orden = {vencida:-1, urgente:0, pronto:1, ok:2, 'sin-fecha':3};
+      return niveles.sort((a,b)=>orden[a.nivel]-orden[b.nivel])[0];
+    }
+    return nivelUrgencia(d.dia);
+  }
+
+  const ordenadas = [...activas].sort((a,b)=>{
+    const ua = urgenciaDeuda(a), ub = urgenciaDeuda(b);
+    const orden = {vencida:-1, urgente:0, pronto:1, ok:2, 'sin-fecha':3};
+    return orden[ua.nivel] - orden[ub.nivel];
+  });
+
+  cont.innerHTML = ordenadas.map(d => {
+    let total = d.total, pagado = d.pagado;
+    if (d.boletas && d.boletas.length) {
+      total = d.boletas.reduce((s,b)=>s+b.monto,0);
+      pagado = d.boletas.filter(b=>b.pagada).reduce((s,b)=>s+b.monto,0);
+    }
+    const restante = Math.max(0, total - pagado);
+    const pct = total > 0 ? Math.min(100, Math.round(pagado/total*100)) : 0;
+    const urg = urgenciaDeuda(d);
+
+    let boletasHtml = '';
+    if (d.boletas && d.boletas.length) {
+      boletasHtml = '<div class="boletas-resumen">' + d.boletas.map(b => {
+        const ub = b.pagada ? {nivel:'ok', label:'Pagada'} : nivelUrgenciaFecha(b.fecha);
+        return `<span class="pill ${ub.nivel}">${b.fecha} · ${fmt(b.monto)} · ${ub.label}</span>`;
+      }).join('') + '</div>';
+    }
+
+    let moraHtml = '';
+    if (d.esMora && d.moraOriginal > 0) {
+      const diasLim = diasHastaFechaExacta(d.moraFecha);
+      const montoDescuento = d.moraOriginal * (1 - (d.moraDescuento||0)/100);
+      const ahorro = d.moraOriginal - montoDescuento;
+      if (diasLim !== null && diasLim >= 0) {
+        moraHtml = `<div class="mora-box"><b>Crédito en mora:</b> si pagás antes de ${d.moraFecha} (${diasLim} día${diasLim===1?'':'s'}), pagás ${fmt(montoDescuento)} en vez de ${fmt(d.moraOriginal)} — te ahorrás ${fmt(ahorro)}.</div>`;
+      } else if (diasLim !== null) {
+        moraHtml = `<div class="mora-box" style="border-color:rgba(255,93,93,.4); background:rgba(255,93,93,.08)"><b>Crédito en mora:</b> el plazo del descuento venció hace ${Math.abs(diasLim)} día${Math.abs(diasLim)===1?'':'s'}. Ahora corresponde el monto completo: ${fmt(d.moraOriginal)}.</div>`;
+      } else {
+        moraHtml = `<div class="mora-box"><b>Crédito en mora:</b> con ${d.moraDescuento||0}% de descuento, el monto a pagar sería ${fmt(montoDescuento)} de ${fmt(d.moraOriginal)} (sin fecha límite cargada).</div>`;
+      }
+    }
+
+    return `
+      <div class="deuda-card">
+        <div class="deuda-top">
+          <div>
+            <div class="deuda-nombre">${d.nombre}</div>
+            <div class="deuda-meta">${d.boletas && d.boletas.length ? d.boletas.length+' boleta'+(d.boletas.length===1?'':'s') : (d.dia ? 'Vence día '+d.dia+' de cada mes' : 'Sin fecha de vencimiento')}${d.minimo?' · Cuota mín: '+fmt(d.minimo):''}</div>
+          </div>
+          <span class="pill ${urg.nivel}">${urg.label}</span>
+        </div>
+        ${boletasHtml}
+        <div class="bar-row" style="margin-bottom:0">
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:var(--green)"></div></div>
+          <div class="bar-val">${fmt(pagado)} / ${fmt(total)}</div>
+        </div>
+        <div class="deuda-progreso" style="color:var(--muted)">Te falta pagar: <b style="color:var(--text)">${fmt(restante)}</b></div>
+        ${moraHtml}
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <button class="small secondary" onclick="editarDeuda('${d.id}')">Editar</button>
+          <button class="small secondary" onclick="marcarPagada('${d.id}')">${restante<=0?'Ya está pagada':'Marcar como saldada'}</button>
+          <button class="small danger-out" onclick="eliminarDeuda('${d.id}')">Eliminar</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+let idEditando = null;
+let boletasModalTemp = [];
+
+function editarDeuda(id) {
+  const d = data.deudas.find(x=>x.id===id);
+  if (!d) return;
+  idEditando = id;
+  document.getElementById('e-nombre').value = d.nombre;
+  document.getElementById('e-total').value = d.total;
+  document.getElementById('e-pagado').value = d.pagado || 0;
+  document.getElementById('e-dia').value = d.dia || '';
+  document.getElementById('e-minimo').value = d.minimo || 0;
+
+  boletasModalTemp = d.boletas ? JSON.parse(JSON.stringify(d.boletas)) : [];
+  document.getElementById('e-usa-boletas').checked = !!(d.boletas && d.boletas.length);
+  document.getElementById('seccion-boletas').style.display = (d.boletas && d.boletas.length) ? 'block' : 'none';
+  renderBoletasModal();
+
+  document.getElementById('e-es-mora').checked = !!d.esMora;
+  document.getElementById('seccion-mora').style.display = d.esMora ? 'block' : 'none';
+  document.getElementById('e-mora-original').value = d.moraOriginal || '';
+  document.getElementById('e-mora-descuento').value = d.moraDescuento || '';
+  document.getElementById('e-mora-fecha').value = d.moraFecha || '';
+
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function toggleBoletasModal() {
+  const on = document.getElementById('e-usa-boletas').checked;
+  document.getElementById('seccion-boletas').style.display = on ? 'block' : 'none';
+  if (on && !boletasModalTemp.length) {
+    boletasModalTemp.push({ id: uid(), monto:0, fecha: new Date().toISOString().slice(0,10), pagada:false });
+    renderBoletasModal();
+  }
+}
+function toggleMoraModal() {
+  const on = document.getElementById('e-es-mora').checked;
+  document.getElementById('seccion-mora').style.display = on ? 'block' : 'none';
+}
+
+function renderBoletasModal() {
+  const cont = document.getElementById('lista-boletas-modal');
+  cont.innerHTML = boletasModalTemp.map((b,i) => `
+    <div class="boleta-fila">
+      <input type="number" min="0" step="1" value="${b.monto}" placeholder="Monto"
+        oninput="boletasModalTemp[${i}].monto = parseFloat(this.value)||0">
+      <input type="date" value="${b.fecha}" onchange="boletasModalTemp[${i}].fecha = this.value">
+      <label class="chk"><input type="checkbox" ${b.pagada?'checked':''} onchange="boletasModalTemp[${i}].pagada = this.checked"> Pagada</label>
+      <button type="button" onclick="quitarBoletaModal(${i})">✕</button>
+    </div>
+  `).join('');
+}
+function agregarBoletaModal() {
+  boletasModalTemp.push({ id: uid(), monto:0, fecha: new Date().toISOString().slice(0,10), pagada:false });
+  renderBoletasModal();
+}
+function quitarBoletaModal(i) {
+  boletasModalTemp.splice(i,1);
+  renderBoletasModal();
+}
+
+function cerrarModal() {
+  idEditando = null;
+  boletasModalTemp = [];
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e=>{
+  if (e.target.id === 'modal-overlay') cerrarModal();
+});
+
+document.getElementById('form-editar').addEventListener('submit', e=>{
+  e.preventDefault();
+  const d = data.deudas.find(x=>x.id===idEditando);
+  if (!d) return;
+
+  const nombre = document.getElementById('e-nombre').value.trim();
+  let total = parseFloat(document.getElementById('e-total').value);
+  let pagado = parseFloat(document.getElementById('e-pagado').value) || 0;
+  const diaVal = document.getElementById('e-dia').value;
+  const dia = diaVal.trim() === '' ? null : Math.min(31, Math.max(1, parseInt(diaVal)));
+  const minimo = parseFloat(document.getElementById('e-minimo').value) || 0;
+
+  const usaBoletas = document.getElementById('e-usa-boletas').checked;
+  let boletas = null;
+  if (usaBoletas) {
+    boletas = boletasModalTemp.filter(b => b.monto > 0 && b.fecha);
+    if (boletas.length) {
+      total = boletas.reduce((s,b)=>s+b.monto,0);
+      pagado = boletas.filter(b=>b.pagada).reduce((s,b)=>s+b.monto,0);
+    }
+  }
+
+  if (!nombre || !total || total <= 0) { toast('Revisa nombre y monto total'); return; }
+
+  const esMora = document.getElementById('e-es-mora').checked;
+  const moraOriginal = parseFloat(document.getElementById('e-mora-original').value) || 0;
+  const moraDescuento = parseFloat(document.getElementById('e-mora-descuento').value) || 0;
+  const moraFecha = document.getElementById('e-mora-fecha').value || null;
+
+  d.nombre = nombre;
+  d.total = total;
+  d.pagado = pagado;
+  d.dia = dia;
+  d.minimo = minimo;
+  d.boletas = (usaBoletas && boletas && boletas.length) ? boletas : null;
+  d.esMora = esMora;
+  d.moraOriginal = esMora ? moraOriginal : null;
+  d.moraDescuento = esMora ? moraDescuento : null;
+  d.moraFecha = esMora ? moraFecha : null;
+  d.activa = pagado < total;
+
+  guardar();
+  cerrarModal();
+  toast('Deuda actualizada');
+  renderTodo();
+});
+
+function marcarPagada(id) {
+  const d = data.deudas.find(x=>x.id===id);
+  if (!d) return;
+  d.pagado = d.total;
+  if (d.boletas && d.boletas.length) d.boletas.forEach(b => b.pagada = true);
+  d.activa = false;
+  guardar();
+  toast('Deuda marcada como saldada 🎉');
+  renderTodo();
+}
+function eliminarDeuda(id) {
+  if (!confirm('¿Eliminar esta deuda del registro?')) return;
+  data.deudas = data.deudas.filter(d=>d.id!==id);
+  guardar();
+  toast('Deuda eliminada');
+  renderTodo();
+}
+
+// ---------- Anticipo ----------
+document.getElementById('a-fecha').value = new Date().toISOString().slice(0,10);
+
+document.getElementById('form-anticipo').addEventListener('submit', e=>{
+  e.preventDefault();
+  const monto = parseFloat(document.getElementById('a-monto').value);
+  const fecha = document.getElementById('a-fecha').value;
+  if (!monto || monto<=0) { toast('Pon un monto válido'); return; }
+
+  data.movimientos.push({ id: uid(), tipo:'anticipo', detalle:'Anticipo de sueldo', monto, fecha });
+  guardar();
+  toast('Anticipo registrado');
+  mostrarSugerencia(monto);
+  renderTodo();
+});
+
+function mostrarSugerencia(monto) {
+  const activas = data.deudas.filter(d=>d.activa !== false && (d.total - d.pagado) > 0);
+  const panel = document.getElementById('panel-sugerencia');
+  if (!activas.length) {
+    panel.style.display = 'block';
+    document.getElementById('sugerencia-lista').innerHTML = `<div class="empty">No tienes deudas pendientes registradas. Este anticipo podría ir directo a tu meta de ahorro.</div>`;
+    return;
+  }
+  panel.style.display = 'block';
+  const ordenadas = [...activas].sort((a,b)=>{
+    const ua = nivelUrgencia(a.dia), ub = nivelUrgencia(b.dia);
+    const orden = {urgente:0, pronto:1, ok:2, 'sin-fecha':3};
+    return orden[ua.nivel] - orden[ub.nivel];
+  });
+
+  let restanteAnticipo = monto;
+  const filas = ordenadas.map(d => {
+    const faltante = d.total - d.pagado;
+    const minimoOSugerido = d.minimo > 0 ? Math.min(d.minimo, faltante) : faltante;
+    const asignado = Math.max(0, Math.min(restanteAnticipo, minimoOSugerido));
+    restanteAnticipo -= asignado;
+    const urg = nivelUrgencia(d.dia);
+    return { d, asignado, urg };
+  });
+
+  document.getElementById('sugerencia-lista').innerHTML = filas.map(({d, asignado, urg}) => `
+    <div class="asignacion-item">
+      <div class="izq">
+        <div class="nombre">${d.nombre}</div>
+        <div class="urg pill ${urg.nivel}" style="margin-top:4px; display:inline-block">${urg.label}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="monto">${asignado>0?fmt(asignado):'$0'}</div>
+        <button class="small secondary" style="margin-top:6px" onclick="pagarDeuda('${d.id}', ${asignado})">Pagar ${asignado>0?fmt(asignado):''}</button>
+      </div>
+    </div>
+  `).join('') + (restanteAnticipo > 0 ? `<div class="alert ok" style="margin-top:10px">Te sobran ${fmt(restanteAnticipo)} después de cubrir mínimos. Considera abonarlo a la deuda más urgente o guardarlo como colchón.</div>` : '');
+}
+
+function pagarDeuda(id, monto) {
+  if (monto <= 0) { toast('No hay monto para pagar'); return; }
+  const d = data.deudas.find(x=>x.id===id);
+  if (!d) return;
+  d.pagado = Math.min(d.total, d.pagado + monto);
+  if (d.pagado >= d.total) d.activa = false;
+  data.movimientos.push({ id: uid(), tipo:'pago', detalle:'Pago a: '+d.nombre, monto, fecha: new Date().toISOString().slice(0,10) });
+  guardar();
+  toast('Pago registrado');
+  renderTodo();
+  document.getElementById('panel-sugerencia').style.display = 'none';
+}
+
+// ---------- Cards / Alerta ----------
+function renderCards() {
+  const activas = data.deudas.filter(d=>d.activa !== false);
+  const totalDeuda = activas.reduce((s,d)=>s + Math.max(0,d.total - d.pagado), 0);
+  const totalPagado = data.deudas.reduce((s,d)=>s+d.pagado,0);
+  const urgentes = activas.filter(d => nivelUrgencia(d.dia).nivel === 'urgente').length;
+  const totalOriginal = data.deudas.reduce((s,d)=>s+d.total,0);
+
+  document.getElementById('cards').innerHTML = `
+    <div class="card"><div class="label">Deuda pendiente</div><div class="value red">${fmt(totalDeuda)}</div></div>
+    <div class="card"><div class="label">Ya pagado</div><div class="value green">${fmt(totalPagado)}</div></div>
+    <div class="card"><div class="label">Vencen en 7 días</div><div class="value amber">${urgentes}</div></div>
+    <div class="card"><div class="label">Deudas activas</div><div class="value purple">${activas.length}</div></div>
+  `;
+
+  const alertaCont = document.getElementById('alerta-principal');
+  if (!data.deudas.length) {
+    alertaCont.innerHTML = `<div class="alert warn">Empieza cargando tus deudas en la pestaña "Mis deudas", aunque sea con montos aproximados. Sin eso no hay nada que ordenar.</div>`;
+  } else if (urgentes > 0) {
+    alertaCont.innerHTML = `<div class="alert bad">Tenés ${urgentes} deuda${urgentes>1?'s':''} que vence${urgentes>1?'n':''} en los próximos 7 días. Cuando recibas tu anticipo del sábado, esa${urgentes>1?'s':''} va${urgentes>1?'n':''} primero.</div>`;
+  } else if (totalDeuda > 0) {
+    alertaCont.innerHTML = `<div class="alert ok">No tenés vencimientos urgentes esta semana. Buen momento para abonar más de lo mínimo a la deuda más cara y salir antes.</div>`;
+  } else {
+    alertaCont.innerHTML = `<div class="alert ok">No registras deuda pendiente. 🎉</div>`;
+  }
+}
+
+// ---------- Historial ----------
+function renderTabla() {
+  const lista = [...data.movimientos].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const body = document.getElementById('tabla-body');
+  const empty = document.getElementById('tabla-empty');
+  if (!lista.length) { body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  body.innerHTML = lista.map(m => `
+    <tr>
+      <td>${m.fecha}</td>
+      <td>${m.tipo === 'anticipo' ? '↑ Anticipo' : '↓ Pago'}</td>
+      <td>${m.detalle}</td>
+      <td class="num" style="color:${m.tipo==='anticipo'?'var(--green)':'var(--red)'}">${m.tipo==='anticipo'?'+':'-'}${fmt(m.monto)}</td>
+      <td><button class="danger-out" onclick="eliminarMov('${m.id}')">✕</button></td>
+    </tr>
+  `).join('');
+}
+function eliminarMov(id) {
+  data.movimientos = data.movimientos.filter(m=>m.id!==id);
+  guardar();
+  toast('Movimiento eliminado');
+  renderTodo();
+}
+
+// ---------- Gastos diarios ----------
+document.getElementById('g-fecha').value = new Date().toISOString().slice(0,10);
+
+document.getElementById('form-gasto').addEventListener('submit', e=>{
+  e.preventDefault();
+  const monto = parseFloat(document.getElementById('g-monto').value);
+  const fecha = document.getElementById('g-fecha').value;
+  const categoria = document.getElementById('g-categoria').value;
+  const desc = document.getElementById('g-desc').value.trim();
+
+  if (!monto || monto<=0 || !fecha) { toast('Revisa el monto y la fecha'); return; }
+
+  data.gastos.push({ id: uid(), monto, fecha, categoria, desc });
+  guardar();
+  e.target.reset();
+  document.getElementById('g-fecha').value = new Date().toISOString().slice(0,10);
+  toast('Gasto agregado');
+  renderTodo();
+});
+
+function inicioSemanaActual() {
+  const hoy = new Date();
+  const ini = new Date(hoy);
+  ini.setDate(hoy.getDate() - hoy.getDay());
+  ini.setHours(0,0,0,0);
+  return ini;
+}
+
+function renderResumenSemana() {
+  const ini = inicioSemanaActual();
+  const deLaSemana = data.gastos.filter(g => new Date(g.fecha+'T00:00:00') >= ini);
+  const total = deLaSemana.reduce((s,g)=>s+g.monto,0);
+  const porDia = total / 7;
+  const masAlta = [...deLaSemana].sort((a,b)=>b.monto-a.monto)[0];
+
+  document.getElementById('resumen-semana-cards').innerHTML = `
+    <div class="card"><div class="label">Gastado esta semana</div><div class="value red">${fmt(total)}</div></div>
+    <div class="card"><div class="label">Promedio diario</div><div class="value amber">${fmt(porDia)}</div></div>
+    <div class="card"><div class="label">Gasto más alto</div><div class="value">${masAlta?fmt(masAlta.monto):'$0'}</div></div>
+  `;
+}
+
+function renderBarrasGastos() {
+  const m = new Date().toISOString().slice(0,7);
+  const delMes = data.gastos.filter(g => g.fecha.slice(0,7) === m);
+  const porCat = {};
+  delMes.forEach(g => { porCat[g.categoria] = (porCat[g.categoria]||0)+g.monto; });
+  const max = Math.max(1, ...Object.values(porCat));
+  const cats = Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+  const cont = document.getElementById('barras-gastos');
+  if (!cats.length) { cont.innerHTML = '<div class="empty">Sin gastos este mes todavía.</div>'; return; }
+  cont.innerHTML = cats.map(([cat,val]) => `
+    <div class="bar-row">
+      <div class="bar-label">${cat}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(val/max*100).toFixed(0)}%; background:var(--accent)"></div></div>
+      <div class="bar-val">${fmt(val)}</div>
+    </div>
+  `).join('');
+}
+
+function renderTablaGastos() {
+  const lista = [...data.gastos].sort((a,b)=>b.fecha.localeCompare(a.fecha)).slice(0,30);
+  const body = document.getElementById('gastos-tabla-body');
+  const empty = document.getElementById('gastos-empty');
+  if (!lista.length) { body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  body.innerHTML = lista.map(g => `
+    <tr>
+      <td>${g.fecha}</td>
+      <td><span class="pill">${g.categoria}</span></td>
+      <td>${g.desc || '-'}</td>
+      <td class="num" style="color:var(--red)">-${fmt(g.monto)}</td>
+      <td><button class="danger-out" onclick="eliminarGasto('${g.id}')">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function eliminarGasto(id) {
+  data.gastos = data.gastos.filter(g=>g.id!==id);
+  guardar();
+  toast('Gasto eliminado');
+  renderTodo();
+}
+
+function renderAlertaGastosVsDeuda() {
+  const ini = inicioSemanaActual();
+  const gastoSemana = data.gastos.filter(g => new Date(g.fecha+'T00:00:00') >= ini).reduce((s,g)=>s+g.monto,0);
+  const ultimoAnticipo = [...data.movimientos].filter(m=>m.tipo==='anticipo').sort((a,b)=>b.fecha.localeCompare(a.fecha))[0];
+  const cont = document.getElementById('alerta-gastos-vs-deuda');
+  const urgentesPendientes = data.deudas.filter(d => d.activa !== false && nivelUrgencia(d.dia).nivel === 'urgente');
+
+  if (ultimoAnticipo && urgentesPendientes.length && gastoSemana > ultimoAnticipo.monto * 0.5) {
+    cont.style.display = 'block';
+    cont.innerHTML = `Esta semana ya gastaste ${fmt(gastoSemana)} en el día a día, más de la mitad de tu último anticipo (${fmt(ultimoAnticipo.monto)}), y todavía tenés ${urgentesPendientes.length} deuda${urgentesPendientes.length>1?'s':''} venciendo pronto. Revisa si te va a alcanzar antes de seguir gastando.`;
+  } else {
+    cont.style.display = 'none';
+  }
+}
+
+// ---------- Configuración de sueldo mensual ----------
+let sueldoConfigTemp = null; // copia editable en memoria mientras el usuario edita
+
+function renderSueldoConfig() {
+  if (sueldoConfigTemp === null) {
+    sueldoConfigTemp = data.sueldoConfig.length ? [...data.sueldoConfig] : [0];
+  }
+  const cont = document.getElementById('lista-sueldo-config');
+  cont.innerHTML = sueldoConfigTemp.map((monto, i) => `
+    <div class="sueldo-fila">
+      <input type="number" min="0" step="1" value="${monto}" placeholder="Monto del anticipo ${i+1}"
+        oninput="actualizarFilaSueldo(${i}, this.value)">
+      <button type="button" onclick="quitarFilaSueldo(${i})">✕</button>
+    </div>
+  `).join('');
+  const total = sueldoConfigTemp.reduce((s,m)=>s+(parseFloat(m)||0),0);
+  document.getElementById('sueldo-total-hint').textContent = `Total configurado: ${fmt(total)}`;
+}
+
+function actualizarFilaSueldo(i, val) {
+  sueldoConfigTemp[i] = parseFloat(val) || 0;
+  const total = sueldoConfigTemp.reduce((s,m)=>s+(parseFloat(m)||0),0);
+  document.getElementById('sueldo-total-hint').textContent = `Total configurado: ${fmt(total)}`;
+}
+
+function agregarFilaSueldo() {
+  sueldoConfigTemp.push(0);
+  renderSueldoConfig();
+}
+
+function quitarFilaSueldo(i) {
+  sueldoConfigTemp.splice(i, 1);
+  if (!sueldoConfigTemp.length) sueldoConfigTemp.push(0);
+  renderSueldoConfig();
+}
+
+function guardarSueldoConfig() {
+  const montos = sueldoConfigTemp.filter(m => m > 0);
+  if (!montos.length) { toast('Agrega al menos un monto mayor a 0'); return; }
+  data.sueldoConfig = montos;
+  guardar();
+  toast('Sueldo mensual guardado');
+  renderTodo();
+}
+
+
+function sabadosRestantesEnMes() {
+  const hoy = new Date();
+  const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0).getDate();
+  let count = 0;
+  for (let d = hoy.getDate(); d <= ultimoDiaMes; d++) {
+    const fecha = new Date(hoy.getFullYear(), hoy.getMonth(), d);
+    if (fecha.getDay() === 6) count++; // 6 = sábado
+  }
+  return count;
+}
+
+function promedioAnticipos() {
+  const anticipos = data.movimientos.filter(m=>m.tipo==='anticipo').sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  if (!anticipos.length) return 0;
+  const ultimos = anticipos.slice(0, 6); // promedio de los últimos 6 anticipos
+  return ultimos.reduce((s,m)=>s+m.monto,0) / ultimos.length;
+}
+
+function renderProyeccion() {
+  const m = new Date().toISOString().slice(0,7);
+  const anticiposRecibidosMes = data.movimientos
+    .filter(mv => mv.tipo==='anticipo' && mv.fecha.slice(0,7) === m)
+    .reduce((s,mv)=>s+mv.monto, 0);
+
+  const usaConfig = data.sueldoConfig.length > 0;
+  const totalConfigurado = data.sueldoConfig.reduce((s,m)=>s+m, 0);
+  const sabadosRestantes = sabadosRestantesEnMes();
+
+  let totalProyectado, proyectadoRestante;
+  if (usaConfig) {
+    proyectadoRestante = Math.max(0, totalConfigurado - anticiposRecibidosMes);
+    totalProyectado = Math.max(totalConfigurado, anticiposRecibidosMes);
+  } else {
+    const promedio = promedioAnticipos();
+    proyectadoRestante = promedio * sabadosRestantes;
+    totalProyectado = anticiposRecibidosMes + proyectadoRestante;
+  }
+
+  const activas = data.deudas.filter(d => d.activa !== false);
+  const hoyMes = new Date().toISOString().slice(0,7);
+
+  let totalVencimientosMes = 0;
+  let huboVencimientoConFecha = false;
+
+  activas.forEach(d => {
+    if (d.boletas && d.boletas.length) {
+      d.boletas.forEach(b => {
+        if (!b.pagada && b.fecha && b.fecha.slice(0,7) === hoyMes) {
+          totalVencimientosMes += b.monto;
+          huboVencimientoConFecha = true;
+        }
+      });
+    } else if (d.esMora && d.moraOriginal > 0 && d.moraFecha) {
+      if (d.moraFecha.slice(0,7) === hoyMes) {
+        const dias = diasHastaFechaExacta(d.moraFecha);
+        const montoAPagar = dias >= 0 ? d.moraOriginal * (1 - (d.moraDescuento||0)/100) : d.moraOriginal;
+        totalVencimientosMes += montoAPagar;
+        huboVencimientoConFecha = true;
+      }
+    } else if (d.dia) {
+      const monto = d.minimo > 0 ? Math.min(d.minimo, Math.max(0, d.total - d.pagado)) : Math.max(0, d.total - d.pagado);
+      totalVencimientosMes += monto;
+      huboVencimientoConFecha = true;
+    }
+  });
+  const vencenEsteMes = { length: huboVencimientoConFecha ? 1 : 0 };
+
+  const balanceProyectado = totalProyectado - totalVencimientosMes;
+
+  document.getElementById('proyeccion-cards').innerHTML = `
+    <div class="card"><div class="label">Anticipos recibidos este mes</div><div class="value green">${fmt(anticiposRecibidosMes)}</div></div>
+    <div class="card"><div class="label">${usaConfig ? 'Falta por recibir (configurado)' : `Proyectado (${sabadosRestantes} sábado${sabadosRestantes===1?'':'s'})`}</div><div class="value amber">${fmt(proyectadoRestante)}</div></div>
+    <div class="card"><div class="label">Vence este mes</div><div class="value red">${fmt(totalVencimientosMes)}</div></div>
+    <div class="card"><div class="label">Balance proyectado</div><div class="value ${balanceProyectado>=0?'green':'red'}">${fmt(balanceProyectado)}</div></div>
+  `;
+
+  const detalle = document.getElementById('proyeccion-detalle');
+  if (!usaConfig && !data.movimientos.some(mv=>mv.tipo==='anticipo')) {
+    detalle.innerHTML = `<div class="alert warn">Todavía no configuraste tu sueldo mensual ni tenés anticipos registrados. Completa el panel "Tu sueldo mensual" arriba para una proyección real.</div>`;
+  } else if (!vencenEsteMes.length) {
+    detalle.innerHTML = `<div class="alert ok">Ninguna de tus deudas tiene día de vencimiento cargado todavía, así que no hay nada que proyectar como urgente este mes. Si alguna sí vence en fecha fija, edítala y agrégale el día.</div>`;
+  } else if (balanceProyectado < 0) {
+    detalle.innerHTML = `<div class="alert bad">Con ${usaConfig ? 'tu sueldo configurado' : 'tu promedio histórico de anticipos'}, te van a faltar ${fmt(Math.abs(balanceProyectado))} para cubrir lo que vence este mes. Esto te lo aviso ahora, a principios de mes, para que decidas con tiempo: pedir un anticipo más alto, conseguir un ingreso extra, o hablar con el acreedor antes de la fecha — no el mismo día que vence.</div>`;
+  } else if (balanceProyectado < totalVencimientosMes * 0.15) {
+    detalle.innerHTML = `<div class="alert warn">Te alcanza, pero justo: te queda un margen de solo ${fmt(balanceProyectado)} sobre lo que vence. Cualquier gasto diario fuera de lo normal te puede dejar corto.</div>`;
+  } else {
+    detalle.innerHTML = `<div class="alert ok">Según ${usaConfig ? 'tu sueldo configurado' : 'tu promedio de anticipos'}, te alcanza con un margen de ${fmt(balanceProyectado)} sobre lo que vence este mes.</div>`;
+  }
+}
+document.getElementById('btn-export-top').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `control_deudas_respaldo_${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('Respaldo descargado');
+});
+document.getElementById('btn-import-top').addEventListener('click', ()=>document.getElementById('file-import').click());
+document.getElementById('file-import').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (!parsed.deudas) throw new Error('Formato inválido');
+      if (confirm(`Se encontraron ${parsed.deudas.length} deudas. ¿Reemplazar los datos actuales?`)) {
+        data = parsed; guardar(); toast('Respaldo importado'); renderTodo();
+      }
+    } catch(err) { alert('No se pudo leer el archivo: '+err.message); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+function renderTodo() {
+  renderCards();
+  renderListaDeudas();
+  renderSueldoConfig();
+  renderProyeccion();
+  renderTabla();
+  renderResumenSemana();
+  renderBarrasGastos();
+  renderTablaGastos();
+  renderAlertaGastosVsDeuda();
+}
+renderTodo();
+</script>
+</body>
+</html>
