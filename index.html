@@ -808,12 +808,19 @@ function marcarPagada(id) {
   toast('Deuda marcada como saldada 🎉');
   renderTodo();
 }
+let deudaAEliminar = null;
 function eliminarDeuda(id) {
-  if (!confirm('¿Eliminar esta deuda del registro?')) return;
-  data.deudas = data.deudas.filter(d=>d.id!==id);
-  guardar();
-  toast('Deuda eliminada');
-  renderTodo();
+  if (deudaAEliminar === id) {
+    data.deudas = data.deudas.filter(d=>d.id!==id);
+    deudaAEliminar = null;
+    guardar();
+    toast('Deuda eliminada');
+    renderTodo();
+  } else {
+    deudaAEliminar = id;
+    toast('Tocá Eliminar de nuevo para confirmar');
+    setTimeout(() => { if (deudaAEliminar === id) deudaAEliminar = null; }, 4000);
+  }
 }
 
 // ---------- Anticipo ----------
@@ -971,12 +978,19 @@ function pagarItemPlan(anticIpoId, itemIdx) {
   renderTodo();
 }
 
+let anticipoAEliminar = null;
 function eliminarAnticipo(id) {
-  if (!confirm('¿Eliminar este anticipo y su plan de pagos? Los pagos ya registrados como hechos no se revierten.')) return;
-  data.movimientos = data.movimientos.filter(m => m.id !== id);
-  guardar();
-  toast('Anticipo eliminado');
-  renderTodo();
+  if (anticipoAEliminar === id) {
+    data.movimientos = data.movimientos.filter(m => m.id !== id);
+    anticipoAEliminar = null;
+    guardar();
+    toast('Anticipo eliminado');
+    renderTodo();
+  } else {
+    anticipoAEliminar = id;
+    toast('Tocá ✕ de nuevo para confirmar la eliminación');
+    setTimeout(() => { if (anticipoAEliminar === id) anticipoAEliminar = null; }, 4000);
+  }
 }
 
 function confirmarAnticipo(id) {
@@ -1383,10 +1397,10 @@ document.getElementById('file-import').addEventListener('change', e=>{
     try {
       const parsed = JSON.parse(ev.target.result);
       if (!parsed.deudas) throw new Error('Formato inválido');
-      if (confirm(`Se encontraron ${parsed.deudas.length} deudas. ¿Reemplazar los datos actuales?`)) {
-        data = parsed; guardar(); toast('Respaldo importado'); renderTodo();
-      }
-    } catch(err) { alert('No se pudo leer el archivo: '+err.message); }
+      data = parsed; guardar();
+      toast(`Respaldo importado: ${parsed.deudas.length} deudas`);
+      renderTodo();
+    } catch(err) { toast('Error al leer el archivo: '+err.message); }
   };
   reader.readAsText(file);
   e.target.value = '';
