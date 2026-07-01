@@ -275,6 +275,7 @@
       <h2>Tus deudas registradas</h2>
       <div id="lista-deudas"></div>
       <div class="empty" id="deudas-empty" style="display:none">Todavía no has cargado deudas. Empieza por las que más te preocupan o las que tienen letras chicas (tarjetas, créditos con interés).</div>
+      <div id="deudas-saldadas-container" style="margin-top:14px"></div>
     </div>
     <div class="panel">
       <h2>Tu sueldo mensual</h2>
@@ -598,6 +599,35 @@ document.getElementById('form-deuda').addEventListener('submit', e=>{
   toast('Deuda agregada');
   renderTodo();
 });
+
+let saldadasAbiertas = false;
+function renderDeudasSaldadas() {
+  const cont = document.getElementById('deudas-saldadas-container');
+  if (!cont) return;
+  const saldadas = data.deudas.filter(d => d.activa === false);
+  if (!saldadas.length) { cont.innerHTML = ''; return; }
+  const totalSaldado = saldadas.reduce((s,d)=>s+d.total,0);
+  const filas = saldadas.map(d => `
+    <div class="plan-item pagado-item">
+      <div><div class="pi-nombre">${d.nombre}</div></div>
+      <div class="pi-derecha"><div class="pi-monto pagado">${fmt(d.total)} ✓</div></div>
+    </div>
+  `).join('');
+  cont.innerHTML = `
+    <div class="anticipo-bloque">
+      <div class="anticipo-bloque-header" style="cursor:pointer" data-action="toggle-saldadas">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px;color:var(--muted)">${saldadasAbiertas?'▾':'▸'}</span>
+          <div>
+            <div class="ab-nombre">✅ Deudas saldadas (${saldadas.length})</div>
+            <div class="ab-meta">Total pagado: ${fmt(totalSaldado)}</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:${saldadasAbiertas?'block':'none'}">${filas}</div>
+    </div>
+  `;
+}
 
 function renderListaDeudas() {
   const cont = document.getElementById('lista-deudas');
@@ -954,7 +984,7 @@ function pagarItemPlan(anticIpoId, itemIdx) {
   if (!mv || !mv.reparto) return;
   const item = mv.reparto[itemIdx];
   if (!item || item.pagado) return;
-  const inputEl = document.getElementById('plan-monto-'+anticIpoId+'-'+itemIdx);
+  const inputEl = document.querySelector('input[data-input="monto"][data-antic="'+anticIpoId+'"][data-idx="'+itemIdx+'"]');
   const monto = inputEl ? parseFloat(inputEl.value)||0 : item.montoPago;
   if (monto <= 0) { toast('El monto es 0'); return; }
   const d = data.deudas.find(x=>x.id===item.deudaId);
@@ -974,9 +1004,29 @@ function pagarItemPlan(anticIpoId, itemIdx) {
   item.pagado = true; item.montoPago = monto;
   data.movimientos.push({ id:uid(), tipo:'pago', detalle:'Pago a: '+item.nombre, monto, fecha:new Date().toISOString().slice(0,10) });
   guardar();
-  toast(fmt(monto)+' pagado a '+item.nombre+' ✓');
+  toast(fmt(monto)+' pagado a '+item.nombre+' — descontado ✓');
   renderTodo();
 }
+
+// Listener único delegado para todos los botones del plan de anticipos.
+// Usar data-attributes en vez de onclick inline evita bugs de comillas para siempre.
+document.getElementById('plan-mes-container').addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.getAttribute('data-action');
+  const anticId = btn.getAttribute('data-antic');
+  if (action === 'pagar') {
+    const idx = parseInt(btn.getAttribute('data-idx'));
+    pagarItemPlan(anticId, idx);
+  } else if (action === 'confirmar') {
+    confirmarAnticipo(anticId);
+  } else if (action === 'eliminar') {
+    e.stopPropagation();
+    eliminarAnticipo(anticId);
+  } else if (action === 'toggle') {
+    togglePlanAnticipo(anticId);
+  }
+});
 
 let anticipoAEliminar = null;
 function eliminarAnticipo(id) {
@@ -1040,18 +1090,18 @@ function renderPlanMes() {
     const totalAsignado = reparto.reduce(function(s,it){return s+it.montoSugerido;},0);
     const sobrante = antic.monto - totalAsignado;
     const todoPagado = reparto.length > 0 && pagados === reparto.length;
+    const aid = antic.id;
 
     const itemsHtml = reparto.length ? reparto.map(function(it,idx){
-      const aid = antic.id;
       const arrastradaBadge = it.arrastrada
         ? '<span class="pill" style="color:var(--amber);border-color:rgba(255,178,79,.4);font-size:10px;margin-left:4px">↩ Pendiente de anticipo anterior</span>'
         : '';
-      const pagadoHtml = '<div class="pi-monto pagado">'+fmt(it.montoPago)+' ✓</div>'
+      const pagadoHtml = '<div class="pi-monto pagado">'+fmt(it.montoPago)+' ✓ Descontado</div>'
         +'<button class="btn-pagar-plan pagado" disabled>Pagado</button>';
-      const pagarHtml = '<input type="number" id="plan-monto-'+aid+'-'+idx+'" value="'+it.montoSugerido
+      const pagarHtml = '<input type="number" data-input="monto" data-antic="'+aid+'" data-idx="'+idx+'" value="'+it.montoSugerido
         +'" min="0" step="1" style="width:110px;text-align:right;margin-bottom:4px;font-size:13px;padding:5px 8px"'
         +(antic.pendiente?' disabled':'')+'>'
-        +'<br><button class="btn-pagar-plan" onclick="pagarItemPlan(&quot;'+aid+'&quot;,'+idx+')"'
+        +'<br><button class="btn-pagar-plan" data-action="pagar" data-antic="'+aid+'" data-idx="'+idx+'"'
         +(antic.pendiente?' disabled style="opacity:.4"':'')+'>Pagar</button>';
       return '<div class="plan-item '+(it.pagado?'pagado-item':'')+(it.arrastrada&&!it.pagado?' arrastrada-item':'')+'">'
         +'<div style="flex:1">'
@@ -1062,7 +1112,7 @@ function renderPlanMes() {
     }).join('') : '<div class="empty" style="padding:12px">Sin deudas pendientes para este anticipo.</div>';
 
     const confirmarBtn = antic.pendiente
-      ? '<button class="btn-pagar-plan" style="margin:10px 14px;width:calc(100% - 28px);background:var(--green);color:#06210f;font-weight:700" onclick="confirmarAnticipo(&quot;'+antic.id+'&quot;)">✓ Confirmar que lo recibí</button>'
+      ? '<button class="btn-pagar-plan" data-action="confirmar" data-antic="'+aid+'" style="margin:10px 14px;width:calc(100% - 28px);background:var(--green);color:#06210f;font-weight:700">✓ Confirmar que lo recibí</button>'
       : '';
     const sobranteHtml = sobrante > 0
       ? '<div class="plan-sobrante">Margen libre: <b style="color:var(--green)">'+fmt(sobrante)+'</b> — para gastos del día o abonar extra a una deuda</div>'
@@ -1071,14 +1121,12 @@ function renderPlanMes() {
       ? ' <span style="font-size:11px;color:'+(todoPagado?'var(--green)':'var(--muted)')+'">'+pagados+'/'+reparto.length+' pagados</span>'
       : '';
 
-    // Plegado: por defecto los completados se pliegan, los activos quedan abiertos.
-    // El estado manual del usuario (planPlegado) tiene prioridad.
-    const plegadoManual = planPlegado[antic.id];
+    const plegadoManual = planPlegado[aid];
     const plegado = plegadoManual !== undefined ? plegadoManual : todoPagado;
     const flecha = plegado ? '▸' : '▾';
 
     return '<div class="anticipo-bloque">'
-      +'<div class="anticipo-bloque-header" style="cursor:pointer" onclick="togglePlanAnticipo(&quot;'+antic.id+'&quot;)">'
+      +'<div class="anticipo-bloque-header" style="cursor:pointer" data-action="toggle" data-antic="'+aid+'">'
       +'<div style="display:flex;align-items:center;gap:8px">'
       +'<span style="font-size:14px;color:var(--muted)">'+flecha+'</span>'
       +'<div>'
@@ -1088,7 +1136,7 @@ function renderPlanMes() {
       +'</div>'
       +'<div style="display:flex;align-items:center;gap:10px">'
       +'<div class="ab-monto '+(antic.pendiente?'pendiente':'')+'">'+fmt(antic.monto)+'</div>'
-      +'<button class="danger-out" style="flex-shrink:0" onclick="event.stopPropagation();eliminarAnticipo(&quot;'+antic.id+'&quot;)">✕</button>'
+      +'<button class="danger-out" data-action="eliminar" data-antic="'+aid+'" style="flex-shrink:0">✕</button>'
       +'</div>'
       +'</div>'
       +'<div style="display:'+(plegado?'none':'block')+'">'
@@ -1429,9 +1477,17 @@ document.getElementById('file-import').addEventListener('change', e=>{
   e.target.value = '';
 });
 
+document.getElementById('deudas-saldadas-container').addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action="toggle-saldadas"]');
+  if (!btn) return;
+  saldadasAbiertas = !saldadasAbiertas;
+  renderDeudasSaldadas();
+});
+
 function renderTodo() {
   renderCards();
   renderListaDeudas();
+  renderDeudasSaldadas();
   renderSueldoConfig();
   renderProyeccion();
   renderBalanceDisponible();
