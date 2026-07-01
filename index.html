@@ -971,6 +971,14 @@ function pagarItemPlan(anticIpoId, itemIdx) {
   renderTodo();
 }
 
+function eliminarAnticipo(id) {
+  if (!confirm('¿Eliminar este anticipo y su plan de pagos? Los pagos ya registrados como hechos no se revierten.')) return;
+  data.movimientos = data.movimientos.filter(m => m.id !== id);
+  guardar();
+  toast('Anticipo eliminado');
+  renderTodo();
+}
+
 function confirmarAnticipo(id) {
   const mv = data.movimientos.find(m=>m.id===id);
   if (!mv) return;
@@ -1055,7 +1063,10 @@ function renderPlanMes() {
       +'<div class="ab-nombre">'+(todoPagado?'✅':antic.pendiente?'⏳':'💰')+' Anticipo '+antic.fecha+'</div>'
       +'<div class="ab-meta">'+(antic.pendiente?'Pendiente de recibir':'Recibido')+progreso+'</div>'
       +'</div>'
+      +'<div style="display:flex;align-items:center;gap:10px">'
       +'<div class="ab-monto '+(antic.pendiente?'pendiente':'')+'">'+fmt(antic.monto)+'</div>'
+      +'<button class="danger-out" style="flex-shrink:0" onclick="eliminarAnticipo('+JSON.stringify(antic.id)+')">✕</button>'
+      +'</div>'
       +'</div>'
       +confirmarBtn
       +itemsHtml
