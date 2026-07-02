@@ -216,9 +216,9 @@
     <h2>Control de Plata</h2>
     <p id="auth-subtitle">Ingresá con tu cuenta</p>
     <form id="form-auth">
-      <input type="email" id="auth-email" placeholder="Correo electrónico" required
+      <input type="email" id="auth-email" name="username" autocomplete="username" placeholder="Correo electrónico" required
         style="letter-spacing:normal; font-size:15px; text-align:left;">
-      <input type="password" id="auth-pass" placeholder="Contraseña" required
+      <input type="password" id="auth-pass" name="password" autocomplete="current-password" placeholder="Contraseña" required
         style="letter-spacing:normal; font-size:15px; text-align:left;">
       <button type="submit" id="auth-btn">Entrar</button>
       <div class="lock-error" id="auth-error"></div>
@@ -232,7 +232,7 @@
 </div>
 
 <div class="wrap">
-  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v18</span></h1>
+  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v19</span></h1>
   <p class="subtitle">Cuentas, deudas, ingresos y gastos diarios — todo en un lugar.</p>
 
   <div id="barra-usuario" style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:8px;"></div>
@@ -608,6 +608,7 @@ if (firebaseDisponible) {
 let modoRegistro = false;
 document.getElementById('auth-toggle').addEventListener('click', function() {
   modoRegistro = !modoRegistro;
+  document.getElementById('auth-pass').setAttribute('autocomplete', modoRegistro ? 'new-password' : 'current-password');
   document.getElementById('auth-subtitle').textContent = modoRegistro ? 'Creá tu cuenta nueva' : 'Ingresá con tu cuenta';
   document.getElementById('auth-btn').textContent = modoRegistro ? 'Crear cuenta' : 'Entrar';
   this.textContent = modoRegistro ? 'Ya tengo cuenta — Entrar' : '¿No tenés cuenta? Crear una';
