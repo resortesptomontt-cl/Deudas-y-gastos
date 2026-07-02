@@ -232,14 +232,13 @@
 </div>
 
 <div class="wrap">
-  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v16</span></h1>
-  <p class="subtitle">Deudas + anticipos semanales + gastos diarios, todo en un lugar.</p>
+  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v18</span></h1>
+  <p class="subtitle">Cuentas, deudas, ingresos y gastos diarios — todo en un lugar.</p>
 
   <div id="barra-usuario" style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:8px;"></div>
 
   <div class="footer-actions" style="margin-bottom:14px">
-    <button class="secondary" id="btn-export-top">⬇ Exportar respaldo (JSON)</button>
-    <button class="secondary" id="btn-import-top">⬆ Importar respaldo</button>
+    <button class="secondary" id="btn-export-top">⬇ Exportar mis datos (JSON)</button>
     <button class="secondary" id="btn-feedback">💬 Enviar sugerencia</button>
   </div>
 
@@ -250,16 +249,16 @@
   <div class="cards" id="cards"></div>
 
   <div class="tabs">
-    <button class="tab active" data-view="deudas">Mis deudas</button>
-    <button class="tab" data-view="anticipo">Repartir anticipo</button>
+    <button class="tab active" data-view="deudas">Cuentas y deudas</button>
+    <button class="tab" data-view="anticipo">Mis ingresos</button>
     <button class="tab" data-view="gastos">Gastos diarios</button>
-    <button class="tab" data-view="historial">Historial de pagos</button>
+    <button class="tab" data-view="historial">Historial</button>
   </div>
 
   <!-- DEUDAS -->
   <div class="view active" id="view-deudas">
     <div class="panel">
-      <h2>Agregar deuda</h2>
+      <h2>Agregar cuenta o deuda</h2>
       <p class="hint">No necesitás los datos exactos. Cárgala con lo que sepas hoy — siempre podés editar el monto después.</p>
       <form id="form-deuda">
         <div class="full">
@@ -288,20 +287,20 @@
             Es una cuenta que llega todos los meses (luz, agua, internet, arriendo)
           </label>
         </div>
-        <button type="submit">Agregar deuda</button>
+        <button type="submit">Agregar cuenta o deuda</button>
       </form>
     </div>
     <div class="panel">
-      <h2>Tus deudas registradas</h2>
+      <h2>Tus cuentas y deudas</h2>
       <div id="lista-deudas"></div>
       <div class="empty" id="deudas-empty" style="display:none">Todavía no has cargado deudas. Empieza por las que más te preocupan o las que tienen letras chicas (tarjetas, créditos con interés).</div>
       <div id="deudas-saldadas-container" style="margin-top:14px"></div>
     </div>
     <div class="panel">
       <h2>Tu sueldo mensual</h2>
-      <p class="hint">Define cómo repartís tu sueldo en anticipos. Esto reemplaza el cálculo por promedio — la proyección va a usar estos montos reales, no una estimación.</p>
+      <p class="hint">Define cómo recibís tu sueldo durante el mes (uno o varios pagos). Esto reemplaza el cálculo por promedio — la proyección va a usar estos montos reales, no una estimación.</p>
       <div id="lista-sueldo-config"></div>
-      <button type="button" class="secondary" style="margin-top:8px" onclick="agregarFilaSueldo()">+ Agregar anticipo</button>
+      <button type="button" class="secondary" style="margin-top:8px" onclick="agregarFilaSueldo()">+ Agregar pago del sueldo</button>
       <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
         <span class="hint" id="sueldo-total-hint" style="margin:0"></span>
         <button type="button" style="grid-column:unset; width:auto" onclick="guardarSueldoConfig()">Guardar sueldo mensual</button>
@@ -310,7 +309,7 @@
 
     <div class="panel">
       <h2>Proyección del mes</h2>
-      <p class="hint">¿Te van a alcanzar tus anticipos de lo que queda del mes para cubrir lo que vence?</p>
+      <p class="hint">¿Te va a alcanzar el ingreso de lo que queda del mes para cubrir lo que vence?</p>
       <div id="proyeccion-cards" class="cards" style="margin-bottom:10px"></div>
       <div id="proyeccion-detalle"></div>
     </div>
@@ -327,7 +326,7 @@
 
     <!-- Registrar anticipo -->
     <div class="panel">
-      <h2>Registrar anticipo</h2>
+      <h2>Registrar ingreso de sueldo</h2>
       <form id="form-anticipo">
         <div>
           <label>Monto (CLP)</label>
@@ -340,7 +339,7 @@
         <div class="full">
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text)">
             <input type="checkbox" id="a-pendiente" style="width:auto">
-            Todavía no lo recibí — solo quiero planificarlo
+            Todavía no lo recibí — solo quiero planificar el reparto
           </label>
         </div>
         <button type="submit">Registrar y generar plan de pago</button>
@@ -441,7 +440,7 @@
   <!-- HISTORIAL -->
   <div class="view" id="view-historial">
     <div class="panel">
-      <h2>Historial de pagos y anticipos</h2>
+      <h2>Historial de movimientos</h2>
       <table>
         <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th style="text-align:right">Monto</th><th></th></tr></thead>
         <tbody id="tabla-body"></tbody>
@@ -529,6 +528,20 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-import">
+  <div class="modal-box">
+    <h2 style="margin-top:0">⚠️ Confirmar importación</h2>
+    <div id="import-comparacion"></div>
+    <div class="alert bad" style="margin-top:12px">
+      <b>Esta acción reemplaza TODO:</b> tus datos actuales en este dispositivo Y en la nube serán sobrescritos por el contenido del archivo. No hay historial de versiones ni forma de deshacer. Si el archivo es más antiguo que tus datos actuales, vas a perder todo lo registrado después de la fecha del archivo.
+    </div>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button type="button" class="secondary" style="flex:1" onclick="cancelarImport()">Cancelar</button>
+      <button type="button" style="flex:1; grid-column:unset; background:var(--red)" onclick="confirmarImport()">Reemplazar de todos modos</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-feedback">
   <div class="modal-box">
     <h2 style="margin-top:0">💬 Enviar sugerencia</h2>
@@ -559,6 +572,23 @@ const firebaseConfig = {
 };
 
 let fbAuth = null, fbDb = null, usuarioActual = null, modoLocal = false;
+// ---------- Cierre automático por inactividad ----------
+window.INACTIVIDAD_MS = 15 * 60 * 1000; // 15 minutos
+let inactividadTimer = null;
+function reiniciarInactividad() {
+  clearTimeout(inactividadTimer);
+  if (!usuarioActual || modoLocal) return; // solo aplica con sesión de nube activa
+  inactividadTimer = setTimeout(function() {
+    if (usuarioActual && !modoLocal) {
+      toast('Sesión cerrada por inactividad 🔒');
+      cerrarSesion();
+    }
+  }, window.INACTIVIDAD_MS);
+}
+['click','keydown','touchstart','scroll','input'].forEach(function(ev) {
+  document.addEventListener(ev, reiniciarInactividad, { passive: true });
+});
+
 const firebaseDisponible = (typeof firebase !== 'undefined');
 
 if (firebaseDisponible) {
@@ -648,6 +678,7 @@ function guardarEnNube() {
   if (!usuarioActual || !fbDb || modoLocal) return;
   clearTimeout(guardarNubeTimer);
   guardarNubeTimer = setTimeout(async () => {
+    if (!usuarioActual || !fbDb || modoLocal) return; // sesión pudo cerrarse durante el debounce
     try {
       await fbDb.collection('usuarios').doc(usuarioActual.uid)
         .collection('datos').doc('principal').set(data);
@@ -683,9 +714,11 @@ if (fbAuth) {
       }
       renderTodo();
       renderBarraUsuario();
+      reiniciarInactividad();
       if (user.uid === ADMIN_UID) renderPanelAdmin();
     } else {
       usuarioActual = null;
+      clearTimeout(inactividadTimer);
       document.getElementById('lock-screen').style.display = 'flex';
       const btn = document.getElementById('auth-btn');
       btn.disabled = false;
@@ -695,8 +728,15 @@ if (fbAuth) {
 }
 
 function cerrarSesion() {
+  if (fbAuth && usuarioActual && !modoLocal) {
+    // La nube es la fuente de verdad: limpiar la copia local para que
+    // nadie con acceso físico al dispositivo pueda leer los datos.
+    localStorage.removeItem(STORAGE_KEY);
+    data = estadoInicial();
+  }
   if (fbAuth) fbAuth.signOut();
 }
+
 
 function renderBarraUsuario() {
   const cont = document.getElementById('barra-usuario');
@@ -1085,7 +1125,7 @@ function renderResumenIngresosMes() {
   }
   cont.innerHTML = `
     <div class="cards" style="margin-bottom:10px">
-      <div class="card"><div class="label">Anticipos de sueldo</div><div class="value green">${fmt(totalAnticipos)}</div></div>
+      <div class="card"><div class="label">Sueldo recibido</div><div class="value green">${fmt(totalAnticipos)}</div></div>
       <div class="card"><div class="label">Ingresos extra</div><div class="value purple">${fmt(totalExtras)}</div></div>
       <div class="card"><div class="label">Total recibido</div><div class="value green">${fmt(totalMes)}</div></div>
     </div>
@@ -1171,7 +1211,7 @@ document.getElementById('form-anticipo').addEventListener('submit', e=>{
   const reparto = generarReparto(monto);
   data.movimientos.push({ id:uid(), tipo:'anticipo', detalle:pendiente?'Anticipo pendiente':'Anticipo de sueldo', monto, fecha, pendiente, reparto:reparto.items, sobrante:reparto.sobrante });
   guardar();
-  toast(pendiente ? 'Anticipo planificado ✓' : 'Anticipo registrado ✓');
+  toast(pendiente ? 'Ingreso planificado ✓' : 'Ingreso registrado ✓');
   e.target.reset();
   document.getElementById('a-fecha').value = new Date().toISOString().slice(0,10);
   renderTodo();
@@ -1236,7 +1276,7 @@ function eliminarAnticipo(id) {
     data.movimientos = data.movimientos.filter(m => m.id !== id);
     anticipoAEliminar = null;
     guardar();
-    toast('Anticipo eliminado');
+    toast('Ingreso eliminado');
     renderTodo();
   } else {
     anticipoAEliminar = id;
@@ -1249,7 +1289,7 @@ function confirmarAnticipo(id) {
   const mv = data.movimientos.find(m=>m.id===id);
   if (!mv) return;
   mv.pendiente = false; mv.detalle = 'Anticipo de sueldo';
-  guardar(); toast('Anticipo confirmado ✓'); renderTodo();
+  guardar(); toast('Ingreso confirmado ✓'); renderTodo();
 }
 
 function renderBalanceDisponible() {
@@ -1287,7 +1327,7 @@ function renderPlanMes() {
   const cont = document.getElementById('plan-mes-container');
   if (!cont) return;
   if (!anticiposMes.length) {
-    cont.innerHTML='<div class="tip"><b>Aún no hay anticipos este mes.</b> Registrá el primero arriba y el sistema genera el plan de pagos automáticamente.</div>';
+    cont.innerHTML='<div class="tip"><b>Aún no hay ingresos registrados este mes.</b> Registrá el primero arriba y el sistema genera el plan de pagos automáticamente.</div>';
     return;
   }
   cont.innerHTML = anticiposMes.map(function(antic) {
@@ -1336,7 +1376,7 @@ function renderPlanMes() {
       +'<div style="display:flex;align-items:center;gap:8px">'
       +'<span style="font-size:14px;color:var(--muted)">'+flecha+'</span>'
       +'<div>'
-      +'<div class="ab-nombre">'+(todoPagado?'✅':antic.pendiente?'⏳':'💰')+' Anticipo '+antic.fecha+'</div>'
+      +'<div class="ab-nombre">'+(todoPagado?'✅':antic.pendiente?'⏳':'💰')+' Ingreso '+antic.fecha+'</div>'
       +'<div class="ab-meta">'+(antic.pendiente?'Pendiente de recibir':'Recibido')+progreso+'</div>'
       +'</div>'
       +'</div>'
@@ -1381,7 +1421,7 @@ function renderCards() {
   `;
   const alertaCont = document.getElementById('alerta-principal'); if(!alertaCont) return;
   if (!data.deudas.length) {
-    alertaCont.innerHTML = `<div class="alert warn">Empieza cargando tus deudas en la pestaña "Mis deudas", aunque sea con montos aproximados.</div>`;
+    alertaCont.innerHTML = `<div class="alert warn">Empieza cargando tus cuentas y deudas en la pestaña "Cuentas y deudas", aunque sea con montos aproximados.</div>`;
   } else if (urgentes > 0) {
     alertaCont.innerHTML = `<div class="alert bad">Tenés ${urgentes} deuda${urgentes>1?'s':''} urgente${urgentes>1?'s':''} o vencida${urgentes>1?'s':''}. Priorizalas en el próximo anticipo.</div>`;
   } else if (totalDeuda > 0) {
@@ -1403,7 +1443,7 @@ function renderTabla() {
     <tr>
       <td>${m.fecha}</td>
       <td>
-        ${m.tipo==='anticipo'?'↑ Anticipo':m.tipo==='extra'?'↑ Extra':'↓ Pago'}
+        ${m.tipo==='anticipo'?'↑ Sueldo':m.tipo==='extra'?'↑ Extra':'↓ Pago'}
         ${m.pendiente?'<span class="pill" style="color:var(--amber);border-color:rgba(255,178,79,.4);margin-left:4px">Pendiente</span>':''}
       </td>
       <td>${m.detalle||'-'}${m.pendiente?`<br><button class="danger-out" style="color:var(--green);border-color:rgba(61,220,132,.4);margin-top:4px" onclick="confirmarAnticipo('${m.id}')">✓ Confirmar recepción</button>`:''}</td>
@@ -1638,8 +1678,8 @@ function renderProyeccion() {
 
   const pcEl = document.getElementById('proyeccion-cards'); if(!pcEl) return;
   pcEl.innerHTML = `
-    <div class="card"><div class="label">Anticipos recibidos este mes</div><div class="value green">${fmt(anticiposRecibidosMes)}</div></div>
-    <div class="card"><div class="label">${usaConfig ? 'Falta por recibir (configurado)' : `Proyectado (${sabadosRestantes} sábado${sabadosRestantes===1?'':'s'})`}</div><div class="value amber">${fmt(proyectadoRestante)}</div></div>
+    <div class="card"><div class="label">Recibido este mes</div><div class="value green">${fmt(anticiposRecibidosMes)}</div></div>
+    <div class="card"><div class="label">${usaConfig ? 'Falta por recibir (configurado)' : `Proyectado (${sabadosRestantes} semana${sabadosRestantes===1?'':'s'} restante${sabadosRestantes===1?'':'s'})`}</div><div class="value amber">${fmt(proyectadoRestante)}</div></div>
     <div class="card"><div class="label">Vence este mes</div><div class="value red">${fmt(totalVencimientosMes)}</div></div>
     <div class="card"><div class="label">Balance proyectado</div><div class="value ${balanceProyectado>=0?'green':'red'}">${fmt(balanceProyectado)}</div></div>
   `;
@@ -1665,7 +1705,16 @@ document.getElementById('btn-export-top').addEventListener('click', ()=>{
   a.click(); URL.revokeObjectURL(url);
   toast('Respaldo descargado');
 });
-document.getElementById('btn-import-top').addEventListener('click', ()=>document.getElementById('file-import').click());
+let importPendiente = null;
+
+function fechaMasReciente(d) {
+  const fechas = [
+    ...(d.movimientos||[]).map(m=>m.fecha),
+    ...(d.gastos||[]).map(g=>g.fecha)
+  ].filter(Boolean).sort();
+  return fechas.length ? fechas[fechas.length-1] : null;
+}
+
 document.getElementById('file-import').addEventListener('change', e=>{
   const file = e.target.files[0];
   if (!file) return;
@@ -1674,13 +1723,50 @@ document.getElementById('file-import').addEventListener('change', e=>{
     try {
       const parsed = JSON.parse(ev.target.result);
       if (!parsed.deudas) throw new Error('Formato inválido');
-      data = parsed; guardar();
-      toast(`Respaldo importado: ${parsed.deudas.length} deudas`);
-      renderTodo();
+      importPendiente = parsed;
+
+      const fArchivo = fechaMasReciente(parsed) || 'sin fechas';
+      const fActual = fechaMasReciente(data) || 'sin fechas';
+      const esViejo = fArchivo !== 'sin fechas' && fActual !== 'sin fechas' && fArchivo < fActual;
+
+      document.getElementById('import-comparacion').innerHTML = `
+        <table style="width:100%; font-size:13px;">
+          <tr><th></th><th style="text-align:right">Archivo</th><th style="text-align:right">Tus datos actuales</th></tr>
+          <tr><td>Deudas</td><td class="num">${(parsed.deudas||[]).length}</td><td class="num">${data.deudas.length}</td></tr>
+          <tr><td>Movimientos</td><td class="num">${(parsed.movimientos||[]).length}</td><td class="num">${data.movimientos.length}</td></tr>
+          <tr><td>Gastos</td><td class="num">${(parsed.gastos||[]).length}</td><td class="num">${data.gastos.length}</td></tr>
+          <tr><td>Último registro</td><td class="num">${fArchivo}</td><td class="num">${fActual}</td></tr>
+        </table>
+        ${esViejo ? '<div class="alert bad" style="margin-top:10px"><b>⛔ ATENCIÓN:</b> el archivo es MÁS ANTIGUO que tus datos actuales ('+fArchivo+' vs '+fActual+'). Si continuás, vas a perder todo lo registrado después del '+fArchivo+'.</div>' : ''}
+      `;
+      document.getElementById('modal-import').classList.add('show');
     } catch(err) { toast('Error al leer el archivo: '+err.message); }
   };
   reader.readAsText(file);
   e.target.value = '';
+});
+
+function cancelarImport() {
+  importPendiente = null;
+  document.getElementById('modal-import').classList.remove('show');
+}
+
+function confirmarImport() {
+  if (!importPendiente) return;
+  data = importPendiente;
+  if (!data.deudas) data.deudas = [];
+  if (!data.movimientos) data.movimientos = [];
+  if (!data.gastos) data.gastos = [];
+  if (!data.sueldoConfig) data.sueldoConfig = [];
+  importPendiente = null;
+  guardar();
+  document.getElementById('modal-import').classList.remove('show');
+  toast('Respaldo importado y sincronizado');
+  renderTodo();
+}
+
+document.getElementById('modal-import').addEventListener('click', function(e) {
+  if (e.target.id === 'modal-import') cancelarImport();
 });
 
 document.getElementById('deudas-saldadas-container').addEventListener('click', function(e) {
@@ -1789,6 +1875,29 @@ function renderPanelAdmin() {
   if (!cont) return;
   cont.innerHTML = `
     <div class="anticipo-bloque" style="margin-bottom:14px">
+      <div class="anticipo-bloque-header" style="cursor:pointer" id="admin-bk-header">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px;color:var(--muted)" id="admin-bk-flecha">▸</span>
+          <div>
+            <div class="ab-nombre">🗄️ Respaldo e importación (admin)</div>
+            <div class="ab-meta">Importar reemplaza datos — leer advertencia antes de usar</div>
+          </div>
+        </div>
+      </div>
+      <div id="admin-bk-cuerpo" style="display:none; padding:12px 14px;">
+        <div class="alert bad" style="margin-bottom:12px">
+          <b>⚠️ LEER ANTES DE USAR EL RESPALDO:</b><br><br>
+          <b>A favor del respaldo JSON:</b> es tu copia independiente de Firebase — si el servicio falla, el proyecto se suspende o perdés acceso a tu cuenta, el archivo es tu único salvavidas. También sirve para mover datos entre cuentas o revisar tu historial fuera de la app.<br><br>
+          <b>En contra / riesgos:</b> (1) Importar REEMPLAZA todo — tus datos actuales en este dispositivo Y en la nube se pierden sin forma de deshacer. (2) No hay historial de versiones: si importás un archivo viejo por error, todo lo registrado después de esa fecha desaparece para siempre. (3) El archivo contiene tu información financiera completa en texto plano — guardalo en un lugar seguro, no lo mandes por chats ni lo dejes en Descargas.<br><br>
+          <b>Regla práctica:</b> exportá una vez por semana, guardá el archivo con fecha en el nombre, y antes de importar revisá SIEMPRE la comparación que muestra el sistema.
+        </div>
+        <div class="footer-actions">
+          <button class="secondary" id="admin-btn-export">⬇ Exportar respaldo</button>
+          <button class="secondary" id="admin-btn-import" style="border-color:rgba(255,93,93,.4); color:var(--red)">⬆ Importar respaldo (reemplaza todo)</button>
+        </div>
+      </div>
+    </div>
+    <div class="anticipo-bloque" style="margin-bottom:14px">
       <div class="anticipo-bloque-header" style="cursor:pointer" id="admin-fb-header">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:14px;color:var(--muted)" id="admin-fb-flecha">▸</span>
@@ -1801,6 +1910,19 @@ function renderPanelAdmin() {
       <div id="admin-fb-lista" style="display:none"></div>
     </div>
   `;
+  document.getElementById('admin-bk-header').addEventListener('click', function() {
+    const cuerpo = document.getElementById('admin-bk-cuerpo');
+    const visible = cuerpo.style.display !== 'none';
+    cuerpo.style.display = visible ? 'none' : 'block';
+    document.getElementById('admin-bk-flecha').textContent = visible ? '▸' : '▾';
+  });
+  document.getElementById('admin-btn-export').addEventListener('click', function() {
+    document.getElementById('btn-export-top').click();
+  });
+  document.getElementById('admin-btn-import').addEventListener('click', function() {
+    document.getElementById('file-import').click();
+  });
+
   let abierto = false;
   document.getElementById('admin-fb-header').addEventListener('click', async function() {
     abierto = !abierto;
