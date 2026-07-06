@@ -245,7 +245,7 @@
 </div>
 
 <div class="wrap">
-  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v22</span></h1>
+  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v23</span></h1>
   <p class="subtitle">Cuentas, deudas, ingresos y gastos diarios — todo en un lugar.</p>
 
   <div id="barra-usuario" style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:8px;"></div>
@@ -278,9 +278,10 @@
           <label>¿A quién le debés? (banco, tarjeta, persona, etc.)</label>
           <input type="text" id="d-nombre" required placeholder="Ej: Tarjeta Falabella, préstamo de mi tío">
         </div>
+        <div id="campos-manuales" style="display:contents">
         <div>
           <label>Monto total que debés (CLP)</label>
-          <input type="number" id="d-total" min="0" step="1" required placeholder="0">
+          <input type="number" id="d-total" min="0" step="1" placeholder="0">
         </div>
         <div>
           <label>¿Ya pagaste algo de esto? (CLP)</label>
@@ -293,6 +294,7 @@
         <div>
           <label>Cuota mínima mensual (opcional, CLP)</label>
           <input type="number" id="d-minimo" min="0" step="1" placeholder="0">
+        </div>
         </div>
         <div class="full">
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text)">
@@ -895,6 +897,8 @@ document.querySelectorAll('.tab').forEach(btn=>{
 function toggleCreditoForm() {
   const on = document.getElementById('d-es-credito').checked;
   document.getElementById('seccion-credito').style.display = on ? 'block' : 'none';
+  const manuales = document.getElementById('campos-manuales');
+  if (manuales) manuales.style.display = on ? 'none' : 'contents';
 }
 
 function sumarMeses(fechaISO, meses) {
@@ -972,10 +976,12 @@ document.getElementById('form-deuda').addEventListener('submit', e=>{
   const dia = document.getElementById('d-dia').value ? parseInt(document.getElementById('d-dia').value) : null;
   const minimo = parseFloat(document.getElementById('d-minimo').value) || 0;
 
-  if (!nombre || !total || total<=0) { toast('Pon nombre y monto total'); return; }
+  if (!nombre) { toast('Pon el nombre'); return; }
 
   const recurrente = document.getElementById('d-recurrente').checked;
   const esCredito = document.getElementById('d-es-credito').checked;
+
+  if (!esCredito && (!total || total<=0)) { toast('Pon el monto total'); return; }
 
   if (esCredito) {
     const valorCuota = parseFloat(document.getElementById('c-valor-cuota').value) || 0;
@@ -1437,6 +1443,7 @@ function pagarItemPlan(anticIpoId, itemIdx) {
   const monto = inputEl ? parseFloat(inputEl.value)||0 : item.montoPago;
   if (monto <= 0) { toast('El monto es 0'); return; }
   const d = data.deudas.find(x=>x.id===item.deudaId);
+  const rastroBoletas = []; // qué se abonó a cada boleta, para poder revertir exacto
   if (d) {
     if (d.boletas && d.boletas.length) {
       let por = monto;
@@ -1446,7 +1453,9 @@ function pagarItemPlan(anticIpoId, itemIdx) {
         const abono = Math.min(por, falta);
         b.abonado = (b.abonado||0) + abono;
         por -= abono;
+        const marcadaAhora = (b.abonado >= b.monto && !b.pagada);
         if (b.abonado >= b.monto) b.pagada = true;
+        rastroBoletas.push({ boletaId: b.id, abono, marcadaPagada: marcadaAhora });
       }
       d.pagado = d.boletas.reduce((s,b)=>s+Math.min(b.abonado||0, b.monto),0);
     } else {
@@ -1454,10 +1463,62 @@ function pagarItemPlan(anticIpoId, itemIdx) {
     }
     if (d.pagado >= d.total) d.activa = false;
   }
-  item.pagado = true; item.montoPago = monto;
-  data.movimientos.push({ id:uid(), tipo:'pago', detalle:'Pago a: '+item.nombre, monto, fecha:new Date().toISOString().slice(0,10) });
+  const pagoId = uid();
+  item.pagado = true;
+  item.montoPago = monto;
+  item.pagoMovId = pagoId;        // vínculo al movimiento de historial
+  item.rastroBoletas = rastroBoletas; // para revertir crédito con exactitud
+  data.movimientos.push({ id:pagoId, tipo:'pago', detalle:'Pago a: '+item.nombre, monto, fecha:new Date().toISOString().slice(0,10) });
   guardar();
   toast(fmt(monto)+' pagado a '+item.nombre+' — descontado ✓');
+  renderTodo();
+}
+
+let revertirPendiente = null;
+function revertirItemPlan(anticIpoId, itemIdx) {
+  const mv = data.movimientos.find(m=>m.id===anticIpoId);
+  if (!mv || !mv.reparto) return;
+  const item = mv.reparto[itemIdx];
+  if (!item || !item.pagado) return;
+
+  const claveConfirm = anticIpoId + '::' + itemIdx;
+  if (revertirPendiente !== claveConfirm) {
+    revertirPendiente = claveConfirm;
+    toast('⚠️ Tocá "Deshacer" otra vez para revertir el pago de ' + fmt(item.montoPago));
+    setTimeout(() => { if (revertirPendiente === claveConfirm) { revertirPendiente = null; renderTodo(); } }, 5000);
+    renderTodo();
+    return;
+  }
+  revertirPendiente = null;
+
+  const d = data.deudas.find(x=>x.id===item.deudaId);
+  if (d) {
+    if (d.boletas && d.boletas.length && item.rastroBoletas) {
+      // Revertir exactamente lo que este pago aplicó a cada boleta
+      item.rastroBoletas.forEach(r => {
+        const b = d.boletas.find(x=>x.id===r.boletaId);
+        if (b) {
+          b.abonado = Math.max(0, (b.abonado||0) - r.abono);
+          if (r.marcadaPagada) b.pagada = false;
+        }
+      });
+      d.pagado = d.boletas.reduce((s,b)=>s+Math.min(b.abonado||0, b.monto),0);
+    } else {
+      d.pagado = Math.max(0, d.pagado - item.montoPago);
+    }
+    // Si estaba saldada por este pago, reactivarla
+    if (d.pagado < d.total) d.activa = true;
+  }
+
+  // Quitar el movimiento del historial vinculado a este pago
+  if (item.pagoMovId) {
+    data.movimientos = data.movimientos.filter(m => m.id !== item.pagoMovId);
+  }
+  item.pagado = false;
+  delete item.pagoMovId;
+  delete item.rastroBoletas;
+  guardar();
+  toast('Pago revertido — ' + fmt(item.montoPago) + ' devuelto a la deuda');
   renderTodo();
 }
 
@@ -1471,6 +1532,9 @@ document.getElementById('plan-mes-container').addEventListener('click', function
   if (action === 'pagar') {
     const idx = parseInt(btn.getAttribute('data-idx'));
     pagarItemPlan(anticId, idx);
+  } else if (action === 'revertir') {
+    const idx = parseInt(btn.getAttribute('data-idx'));
+    revertirItemPlan(anticId, idx);
   } else if (action === 'confirmar') {
     confirmarAnticipo(anticId);
   } else if (action === 'eliminar') {
@@ -1553,8 +1617,12 @@ function renderPlanMes() {
       const arrastradaBadge = it.arrastrada
         ? '<span class="pill" style="color:var(--amber);border-color:rgba(255,178,79,.4);font-size:10px;margin-left:4px">↩ Pendiente de anticipo anterior</span>'
         : '';
+      const claveRev = aid + '::' + idx;
+      const enConfirmRev = (revertirPendiente === claveRev);
       const pagadoHtml = '<div class="pi-monto pagado">'+fmt(it.montoPago)+' ✓ Descontado</div>'
-        +'<button class="btn-pagar-plan pagado" disabled>Pagado</button>';
+        +'<button class="btn-pagar-plan" data-action="revertir" data-antic="'+aid+'" data-idx="'+idx+'" '
+        +'style="background:transparent;border:1px solid '+(enConfirmRev?'var(--red)':'var(--border)')+';color:'+(enConfirmRev?'var(--red)':'var(--muted)')+'">'
+        +(enConfirmRev?'¿Seguro? Deshacer':'↺ Deshacer')+'</button>';
       const pagarHtml = '<input type="number" data-input="monto" data-antic="'+aid+'" data-idx="'+idx+'" value="'+it.montoSugerido
         +'" min="0" step="1" style="width:110px;text-align:right;margin-bottom:4px;font-size:13px;padding:5px 8px"'
         +(antic.pendiente?' disabled':'')+'>'
