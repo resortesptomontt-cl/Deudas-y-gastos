@@ -245,7 +245,7 @@
 </div>
 
 <div class="wrap">
-  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v23</span></h1>
+  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v24</span></h1>
   <p class="subtitle">Cuentas, deudas, ingresos y gastos diarios — todo en un lugar.</p>
 
   <div id="barra-usuario" style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:8px;"></div>
@@ -494,6 +494,12 @@
       <div class="empty" id="tabla-empty" style="display:none">Sin movimientos todavía.</div>
       <input type="file" id="file-import" accept=".json" style="display:none">
     </div>
+
+    <div class="panel" style="border:1px solid rgba(255,93,93,.3); margin-top:16px;">
+      <h2 style="color:var(--red)">Zona de peligro</h2>
+      <p class="hint">Si tu registro quedó con muchos errores y querés empezar de cero, podés borrar todos tus datos. Tu cuenta de acceso se mantiene.</p>
+      <button class="secondary" id="btn-borrar-todo" style="border-color:rgba(255,93,93,.4); color:var(--red)">🗑️ Borrar todos mis datos y empezar de nuevo</button>
+    </div>
   </div>
 </div>
 
@@ -584,6 +590,24 @@
     <div style="display:flex; gap:8px; margin-top:12px;">
       <button type="button" class="secondary" style="flex:1" onclick="cancelarImport()">Cancelar</button>
       <button type="button" style="flex:1; grid-column:unset; background:var(--red)" onclick="confirmarImport()">Reemplazar de todos modos</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-borrar-todo">
+  <div class="modal-box">
+    <h2 style="margin-top:0; color:var(--red)">⚠️ Borrar todos mis datos</h2>
+    <div class="alert bad">
+      Esto elimina <b>de forma permanente</b> todas tus deudas, ingresos, gastos e historial — en este dispositivo y en la nube. <b>No se puede deshacer.</b> Tu cuenta de acceso se mantiene; solo se borran los datos.
+    </div>
+    <p class="hint" style="margin-top:12px">Antes de borrar, te recomendamos <b>exportar una copia</b> por si más adelante querés recuperar algo.</p>
+    <button class="secondary" id="borrar-export-antes" style="width:100%; margin-bottom:14px">⬇ Exportar copia de seguridad primero</button>
+    <label style="font-size:13px; color:var(--text)">Para confirmar, escribí la palabra <b>BORRAR</b> abajo:</label>
+    <input type="text" id="borrar-confirm-input" placeholder="Escribí BORRAR" autocomplete="off"
+      style="width:100%; letter-spacing:normal; text-align:left; margin-top:6px;">
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button type="button" class="secondary" style="flex:1" onclick="cerrarBorrarTodo()">Cancelar</button>
+      <button type="button" id="borrar-confirmar-btn" style="flex:1; background:var(--red); opacity:.5" disabled>Borrar todo</button>
     </div>
   </div>
 </div>
@@ -2113,6 +2137,51 @@ function renderConsejoFinanciero() {
 }
 
 // ---------- Feedback ----------
+// ---------- Borrar todos los datos (empezar de nuevo) ----------
+document.getElementById('btn-borrar-todo').addEventListener('click', function() {
+  document.getElementById('borrar-confirm-input').value = '';
+  const btn = document.getElementById('borrar-confirmar-btn');
+  btn.disabled = true; btn.style.opacity = '.5';
+  document.getElementById('modal-borrar-todo').classList.add('show');
+});
+
+function cerrarBorrarTodo() {
+  document.getElementById('modal-borrar-todo').classList.remove('show');
+  document.getElementById('borrar-confirm-input').value = '';
+}
+
+document.getElementById('borrar-export-antes').addEventListener('click', function() {
+  document.getElementById('btn-export-top').click();
+});
+
+document.getElementById('borrar-confirm-input').addEventListener('input', function() {
+  const btn = document.getElementById('borrar-confirmar-btn');
+  const ok = this.value.trim().toUpperCase() === 'BORRAR';
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '.5';
+});
+
+document.getElementById('borrar-confirmar-btn').addEventListener('click', async function() {
+  if (document.getElementById('borrar-confirm-input').value.trim().toUpperCase() !== 'BORRAR') return;
+  // Resetear datos en memoria y local
+  data = estadoInicial();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  // Borrar también en la nube si hay sesión
+  if (usuarioActual && fbDb && !modoLocal) {
+    try {
+      await fbDb.collection('usuarios').doc(usuarioActual.uid)
+        .collection('datos').doc('principal').set(data);
+    } catch(e) { console.error('Error borrando en nube', e); }
+  }
+  cerrarBorrarTodo();
+  toast('Datos borrados. Empezá de nuevo cuando quieras 🌱');
+  renderTodo();
+});
+
+document.getElementById('modal-borrar-todo').addEventListener('click', function(e) {
+  if (e.target.id === 'modal-borrar-todo') cerrarBorrarTodo();
+});
+
 document.getElementById('btn-feedback').addEventListener('click', function() {
   if (!usuarioActual && !modoLocal) { toast('Iniciá sesión primero'); return; }
   if (modoLocal || !fbDb) { toast('El feedback necesita conexión — no disponible en modo local'); return; }
