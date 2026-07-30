@@ -245,7 +245,7 @@
 </div>
 
 <div class="wrap">
-  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v24</span></h1>
+  <h1>📋 Control de Plata <span style="font-size:10px;color:var(--muted);font-weight:400">v25</span></h1>
   <p class="subtitle">Cuentas, deudas, ingresos y gastos diarios — todo en un lugar.</p>
 
   <div id="barra-usuario" style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:8px;"></div>
@@ -590,6 +590,25 @@
     <div style="display:flex; gap:8px; margin-top:12px;">
       <button type="button" class="secondary" style="flex:1" onclick="cancelarImport()">Cancelar</button>
       <button type="button" style="flex:1; grid-column:unset; background:var(--red)" onclick="confirmarImport()">Reemplazar de todos modos</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-abono">
+  <div class="modal-box">
+    <h2 style="margin-top:0">＋ Abonar a la deuda</h2>
+    <p class="hint" id="abono-nombre-deuda" style="margin-bottom:12px"></p>
+    <div class="full">
+      <label>¿Cuánto pagaste? (CLP)</label>
+      <input type="number" id="abono-monto" min="0" step="1" placeholder="0" style="letter-spacing:normal; text-align:left;">
+    </div>
+    <div class="full" style="margin-top:10px;">
+      <label>Fecha del pago</label>
+      <input type="date" id="abono-fecha">
+    </div>
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button type="button" class="secondary" style="flex:1" onclick="cerrarAbono()">Cancelar</button>
+      <button type="button" id="abono-confirmar" style="flex:1; background:var(--green); color:#06210f; font-weight:600;">Registrar abono</button>
     </div>
   </div>
 </div>
@@ -1161,7 +1180,14 @@ function renderListaDeudas() {
         </div>
         <div class="deuda-progreso" style="color:var(--muted)">Te falta pagar: <b style="color:var(--text)">${fmt(restante)}</b></div>
         ${moraHtml}
-        <div style="display:flex; gap:6px; margin-top:8px;">
+        ${(d.abonos && d.abonos.length) ? '<div class="abonos-lista" style="margin-top:8px; font-size:12px;">'+d.abonos.slice(-3).reverse().map(ab =>
+          '<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-top:1px solid var(--border);">'
+          +'<span style="color:var(--muted)">Abono '+ab.fecha+': <b style="color:var(--green)">'+fmt(ab.monto)+'</b></span>'
+          +'<button class="small danger-out" style="padding:2px 8px; font-size:11px;" data-action="revertir-abono" data-deuda="'+d.id+'" data-abono="'+ab.id+'">↺ Revertir</button>'
+          +'</div>'
+        ).join('')+'</div>' : ''}
+        <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+          <button class="small" style="background:var(--green); color:#06210f; font-weight:600;" data-action="abrir-abono" data-deuda="${d.id}">＋ Abonar</button>
           <button class="small secondary" onclick="editarDeuda('${d.id}')">Editar</button>
           <button class="small secondary" onclick="marcarPagada('${d.id}')">${restante<=0?'Ya está pagada':'Marcar como saldada'}</button>
           <button class="small danger-out" onclick="eliminarDeuda('${d.id}')">Eliminar</button>
@@ -1456,6 +1482,118 @@ document.getElementById('form-anticipo').addEventListener('submit', e=>{
   e.target.reset();
   document.getElementById('a-fecha').value = new Date().toISOString().slice(0,10);
   renderTodo();
+});
+
+// ---------- Abono directo a una deuda (pago suelto, fuera del plan) ----------
+let abonoDeudaId = null;
+function abrirAbono(deudaId) {
+  const d = data.deudas.find(x=>x.id===deudaId);
+  if (!d) return;
+  abonoDeudaId = deudaId;
+  document.getElementById('abono-nombre-deuda').textContent = d.nombre;
+  document.getElementById('abono-monto').value = '';
+  document.getElementById('abono-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('modal-abono').classList.add('show');
+  document.getElementById('abono-monto').focus();
+}
+
+function cerrarAbono() {
+  document.getElementById('modal-abono').classList.remove('show');
+  abonoDeudaId = null;
+}
+
+function registrarAbono() {
+  const d = data.deudas.find(x=>x.id===abonoDeudaId);
+  if (!d) return;
+  const monto = parseFloat(document.getElementById('abono-monto').value) || 0;
+  const fecha = document.getElementById('abono-fecha').value || new Date().toISOString().slice(0,10);
+  if (monto <= 0) { toast('Pon un monto válido'); return; }
+
+  const abonoId = uid();
+  const rastroBoletas = [];
+  if (d.boletas && d.boletas.length) {
+    let por = monto;
+    for (const b of d.boletas.filter(b=>!b.pagada).sort((a,b_)=>a.fecha.localeCompare(b_.fecha))) {
+      if (por<=0) break;
+      const falta = b.monto - (b.abonado||0);
+      const abono = Math.min(por, falta);
+      b.abonado = (b.abonado||0) + abono;
+      por -= abono;
+      const marcada = (b.abonado >= b.monto && !b.pagada);
+      if (b.abonado >= b.monto) b.pagada = true;
+      rastroBoletas.push({ boletaId: b.id, abono, marcadaPagada: marcada });
+    }
+    d.pagado = d.boletas.reduce((s,b)=>s+Math.min(b.abonado||0, b.monto),0);
+  } else {
+    d.pagado = Math.min(d.total, (d.pagado||0) + monto);
+  }
+  if (d.pagado >= d.total) d.activa = false;
+
+  // Guardar el abono en la deuda para poder revertirlo
+  if (!d.abonos) d.abonos = [];
+  d.abonos.push({ id: abonoId, monto, fecha, rastroBoletas, movId: abonoId });
+  data.movimientos.push({ id: abonoId, tipo:'pago', detalle:'Abono a: '+d.nombre, monto, fecha });
+
+  guardar();
+  cerrarAbono();
+  toast(fmt(monto)+' abonado a '+d.nombre+' ✓');
+  renderTodo();
+}
+
+let revertirAbonoPend = null;
+function revertirAbono(deudaId, abonoId) {
+  const d = data.deudas.find(x=>x.id===deudaId);
+  if (!d || !d.abonos) return;
+  const abono = d.abonos.find(a=>a.id===abonoId);
+  if (!abono) return;
+
+  const clave = deudaId + '::' + abonoId;
+  if (revertirAbonoPend !== clave) {
+    revertirAbonoPend = clave;
+    toast('⚠️ Tocá "Revertir" otra vez para deshacer el abono de ' + fmt(abono.monto));
+    setTimeout(() => { if (revertirAbonoPend === clave) { revertirAbonoPend = null; } }, 5000);
+    return;
+  }
+  revertirAbonoPend = null;
+
+  if (d.boletas && d.boletas.length && abono.rastroBoletas) {
+    abono.rastroBoletas.forEach(r => {
+      const b = d.boletas.find(x=>x.id===r.boletaId);
+      if (b) {
+        b.abonado = Math.max(0, (b.abonado||0) - r.abono);
+        if (r.marcadaPagada) b.pagada = false;
+      }
+    });
+    d.pagado = d.boletas.reduce((s,b)=>s+Math.min(b.abonado||0, b.monto),0);
+  } else {
+    d.pagado = Math.max(0, (d.pagado||0) - abono.monto);
+  }
+  if (d.pagado < d.total) d.activa = true;
+
+  // Quitar el movimiento del historial y el abono de la deuda
+  if (abono.movId) data.movimientos = data.movimientos.filter(m=>m.id!==abono.movId);
+  d.abonos = d.abonos.filter(a=>a.id!==abonoId);
+
+  guardar();
+  toast('Abono revertido — ' + fmt(abono.monto) + ' devuelto a la deuda');
+  renderTodo();
+}
+
+document.getElementById('abono-confirmar').addEventListener('click', registrarAbono);
+document.getElementById('modal-abono').addEventListener('click', function(e){
+  if (e.target.id === 'modal-abono') cerrarAbono();
+});
+
+// Listener delegado para los botones de abono/revertir en las tarjetas de deuda
+document.getElementById('lista-deudas').addEventListener('click', function(e){
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.getAttribute('data-action');
+  if (action === 'abrir-abono') {
+    abrirAbono(btn.getAttribute('data-deuda'));
+  } else if (action === 'revertir-abono') {
+    revertirAbono(btn.getAttribute('data-deuda'), btn.getAttribute('data-abono'));
+  }
 });
 
 function pagarItemPlan(anticIpoId, itemIdx) {
